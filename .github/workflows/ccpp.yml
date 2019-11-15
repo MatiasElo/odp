@@ -1,0 +1,21 @@
+name: Build Test
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: install dependencies
+      run: sudo apt install build-essential automake autoconf libtool pkg-config libssl-dev libnuma-dev libpcap-dev libconfig-dev libcunit1-dev
+    - uses: actions/checkout@v1
+    - name: bootstrap
+      run: ./bootstrap
+    - name: configure
+      run: ./configure
+    - name: make
+      run: make
+    - name: make check
+      run: make check
