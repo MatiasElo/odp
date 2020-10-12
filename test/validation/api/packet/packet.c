@@ -827,6 +827,16 @@ static void packet_test_context(void)
 	CU_ASSERT(odp_packet_user_ptr(pkt) == NULL);
 }
 
+static void packet_test_payload_offset(void)
+{
+	odp_packet_t pkt = test_packet;
+
+	CU_ASSERT(odp_packet_payload_offset_set(pkt, 42) == 0);
+	CU_ASSERT(odp_packet_payload_offset(pkt) == 42);
+	CU_ASSERT(odp_packet_payload_offset_set(pkt, ODP_PACKET_OFFSET_INVALID) == 0);
+	CU_ASSERT(odp_packet_payload_offset(pkt) == ODP_PACKET_OFFSET_INVALID);
+}
+
 static void packet_test_layer_offsets(void)
 {
 	odp_packet_t pkt = test_packet;
@@ -3937,6 +3947,7 @@ odp_testinfo_t packet_suite[] = {
 	ODP_TEST_INFO(packet_test_headroom),
 	ODP_TEST_INFO(packet_test_tailroom),
 	ODP_TEST_INFO(packet_test_context),
+	ODP_TEST_INFO(packet_test_payload_offset),
 	ODP_TEST_INFO(packet_test_event_conversion),
 	ODP_TEST_INFO(packet_test_layer_offsets),
 	ODP_TEST_INFO(packet_test_segment_last),
