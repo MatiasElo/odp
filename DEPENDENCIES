@@ -191,23 +191,22 @@ Prerequisites for building the OpenDataPlane (ODP) API
    $ sudo apt-get install dpdk-dev
 
 3.4.2 Built DPDK from src
-   git clone --branch=19.11 http://dpdk.org/git/dpdk-stable dpdk
+   $ git clone --branch=19.11 http://dpdk.org/git/dpdk-stable dpdk
 
-   #Make and edit DPDK configuration
-   TARGET="x86_64-native-linuxapp-gcc"
-   make config T=${TARGET} O=${TARGET}
-   pushd ${TARGET}
+   # Make and edit DPDK configuration
+   $ export TARGET="x86_64-native-linuxapp-gcc"
+   $ make config T=${TARGET} O=${TARGET}
+   $ pushd ${TARGET}
 
-   #To use I/O without DPDK supported NIC's enable pcap pmd:
-   sed -ri 's,(CONFIG_RTE_LIBRTE_PMD_PCAP=).*,\1y,' .config
-   popd
+   # To use I/O without DPDK supported NIC's enable pcap pmd:
+   $ sed -ri 's,(CONFIG_RTE_LIBRTE_PMD_PCAP=).*,\1y,' .config
+   $ popd
 
-   #Build DPDK
-   make build O=${TARGET} EXTRA_CFLAGS="-fPIC"
-   make install O=${TARGET} DESTDIR=${TARGET}
+   # Build DPDK
+   $ make install T=${TARGET} EXTRA_CFLAGS="-fPIC" DESTDIR=./install
 
-   #compile ODP
-   ./configure --with-dpdk-path=<dpdk_install_dir>
+   # Compile ODP
+   $ ./configure --with-dpdk-path=<dpdk_install_dir>
 
 3.4.3 Setup system
 
