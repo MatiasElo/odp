@@ -171,8 +171,8 @@ Prerequisites for building the OpenDataPlane (ODP) API
 
 3.4 DPDK packet I/O support (optional)
 
-   Use DPDK for ODP packet I/O. Currently supported DPDK versions are v18.11
-   and v19.11.
+   Use DPDK for ODP packet I/O. Currently supported DPDK versions are v19.11
+   (recommended) and v18.11.
 
    Note: only packet I/O is accelerated with DPDK. Use
         https://github.com/OpenDataPlane/odp-dpdk.git
@@ -191,7 +191,7 @@ Prerequisites for building the OpenDataPlane (ODP) API
    $ sudo apt-get install dpdk-dev
 
 3.4.2 Built DPDK from src
-   git clone --branch=18.11 http://dpdk.org/git/dpdk-stable dpdk
+   git clone --branch=19.11 http://dpdk.org/git/dpdk-stable dpdk
 
    #Make and edit DPDK configuration
    TARGET="x86_64-native-linuxapp-gcc"
