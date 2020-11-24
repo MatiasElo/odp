@@ -22,7 +22,7 @@ jobs:
       if: github.event_name == 'pull_request'
       uses: webispy/checkpatch-action@v6
       env:
-        CHECKPATCH_COMMAND: ./scripts/checkpatch.pl
+        CHECKPATCH_COMMAND: ./scripts/aaaaaaaa-checkpatch.pl
 
     - name: Check push
       if: github.event_name == 'push'
