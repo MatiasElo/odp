@@ -11,7 +11,7 @@ jobs:
   Checkpatch:
     runs-on: ubuntu-16.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
       with:
         fetch-depth: 0
 
@@ -20,9 +20,9 @@ jobs:
 
     - name: Check pull request
       if: github.event_name == 'pull_request'
-      uses: webispy/checkpatch-action@v6
       env:
-        CHECKPATCH_COMMAND: ./scripts/aaaaaaaa-checkpatch.pl
+        CHECKPATCH_COMMAND: ./scripts/checkpatch.pl
+      uses: webispy/checkpatch-action@master
 
     - name: Check push
       if: github.event_name == 'push'
