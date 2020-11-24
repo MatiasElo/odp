@@ -19,6 +19,12 @@ jobs:
       run: |
         sudo apt install codespell
 
+    - name: Checkpatch review
+      if: github.event_name == 'pull_request'
+      uses: webispy/checkpatch-action@master
+      env:
+        CHECKPATCH_COMMAND: ./scripts/checkpatch.pl
+
     - name: Dump GitHub context
       env:
         GITHUB_CONTEXT: ${{ toJson(github) }}
