@@ -31,8 +31,13 @@ jobs:
       run: |
         AFTER=${{ github.event.after }}
         BEFORE=${{ github.event.before }}
-        echo Commit range $BEFORE..$AFTER
-        ./scripts/ci-checkpatches.sh ${BEFORE}..${AFTER}
+        COMMIT_RANGE="${BEFORE}..${AFTER}"
+
+        if [ -z "${AFTER}" ] || [ -z "${BEFORE}" ]; then
+          COMMIT_RANGE=""
+        fi
+        echo Commit range $COMMIT_RANGE
+        ./scripts/ci-checkpatches.sh ${COMMIT_RANGE}
 
   Documentation:
     runs-on: ubuntu-18.04
