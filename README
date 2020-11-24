@@ -29,7 +29,7 @@ How to build:
 
     ODP API documentation can be built with (requires Doxygen):
         make doxygen-doc
-
+Test
     Validation tests (requires CUnit) and other test applications can be
     executed with:
         make check
