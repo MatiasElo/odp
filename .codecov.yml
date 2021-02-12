@@ -28,4 +28,4 @@ parsers:
 comment: false
 
 ignore:
-  - "platform/linux-generic/miniz/**/*"
+  - "platform/linux-generic/miniz"
