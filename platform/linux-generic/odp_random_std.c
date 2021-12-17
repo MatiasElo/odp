@@ -1,17 +1,23 @@
 /* Copyright (c) 2014-2018, Linaro Limited
+ * Copyright (c) 2022, Nokia
  * All rights reserved.
  *
  * SPDX-License-Identifier:     BSD-3-Clause
  */
 
+#include <odp_posix_extensions.h>
+
 #include <odp/api/byteorder.h>
 #include <odp/api/cpu.h>
 #include <odp/api/debug.h>
+#include <odp/api/random.h>
+
 #include <odp_init_internal.h>
 #include <odp_random_std_internal.h>
 #include <odp_cpu.h>
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <time.h>
 
 /*
@@ -87,9 +93,25 @@ int32_t _odp_random_std_test_data(uint8_t *buf, uint32_t len, uint64_t *seed)
 
 static __thread uint64_t this_seed;
 
-int32_t _odp_random_std_data(uint8_t *buf, uint32_t len)
+int32_t _odp_random_std_basic_data(uint8_t *buf, uint32_t len)
 {
 	return _random_data(buf, len, &this_seed);
+}
+
+int32_t _odp_random_std_crypto_data(uint8_t *buf, uint32_t len)
+{
+	(void)buf;
+	(void)len;
+
+	return -1;
+}
+
+int32_t _odp_random_std_true_data(uint8_t *buf, uint32_t len)
+{
+	(void)buf;
+	(void)len;
+
+	return -1;
 }
 
 int _odp_random_std_init_local(void)
@@ -103,4 +125,9 @@ int _odp_random_std_init_local(void)
 int _odp_random_std_term_local(void)
 {
 	return 0;
+}
+
+odp_random_kind_t _odp_random_std_max_kind(void)
+{
+	return ODP_RANDOM_BASIC;
 }

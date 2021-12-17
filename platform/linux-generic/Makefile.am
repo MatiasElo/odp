@@ -206,7 +206,6 @@ __LIB__libodp_linux_la_SOURCES = \
 			   odp_queue_spsc.c \
 			   odp_random.c \
 			   odp_random_std.c \
-			   odp_random_openssl.c \
 			   odp_rwlock.c \
 			   odp_rwlock_recursive.c \
 			   odp_schedule_basic.c \
@@ -278,7 +277,6 @@ __LIB__libodp_linux_la_SOURCES += arch/default/odp_atomic.c \
 				  arch/default/odp_cpu_cycles.c \
 				  arch/default/odp_global_time.c \
 				  arch/default/odp_hash_crc32.c \
-				  arch/default/odp_random.c \
 				  arch/arm/odp_sysinfo_parse.c
 odpapiabiarchinclude_HEADERS += arch/default/odp/api/abi/cpu_time.h \
 				arch/default/odp/api/abi/hash_crc32.h
@@ -304,7 +302,6 @@ __LIB__libodp_linux_la_SOURCES += arch/aarch64/odp_atomic.c \
 				  arch/aarch64/cpu_flags.c \
 				  arch/aarch64/odp_global_time.c \
 				  arch/default/odp_hash_crc32.c \
-				  arch/default/odp_random.c \
 				  arch/aarch64/odp_sysinfo_parse.c
 odpapiabiarchinclude_HEADERS += arch/aarch64/odp/api/abi/cpu_time.h \
 				arch/aarch64/odp/api/abi/hash_crc32.h
@@ -328,7 +325,6 @@ __LIB__libodp_linux_la_SOURCES += arch/default/odp_atomic.c \
 				  arch/default/odp_cpu_cycles.c \
 				  arch/default/odp_global_time.c \
 				  arch/default/odp_hash_crc32.c \
-				  arch/default/odp_random.c \
 				  arch/default/odp_sysinfo_parse.c
 odpapiabiarchinclude_HEADERS += arch/default/odp/api/abi/cpu_time.h \
 				arch/default/odp/api/abi/hash_crc32.h
@@ -348,7 +344,6 @@ if ARCH_IS_MIPS64
 __LIB__libodp_linux_la_SOURCES += arch/default/odp_atomic.c \
 				  arch/default/odp_global_time.c \
 				  arch/default/odp_hash_crc32.c \
-				  arch/default/odp_random.c \
 				  arch/mips64/odp_sysinfo_parse.c
 odpapiabiarchinclude_HEADERS += arch/default/odp/api/abi/cpu_time.h \
 				arch/default/odp/api/abi/hash_crc32.h
@@ -369,7 +364,6 @@ __LIB__libodp_linux_la_SOURCES += arch/default/odp_atomic.c \
 				  arch/default/odp_cpu_cycles.c \
 				  arch/default/odp_global_time.c \
 				  arch/default/odp_hash_crc32.c \
-				  arch/default/odp_random.c \
 				  arch/powerpc/odp_sysinfo_parse.c
 odpapiabiarchinclude_HEADERS += arch/default/odp/api/abi/cpu_time.h \
 				arch/default/odp/api/abi/hash_crc32.h
@@ -391,7 +385,6 @@ __LIB__libodp_linux_la_SOURCES += arch/default/odp_atomic.c \
 				  arch/x86/odp_cpu_cycles.c \
 				  arch/x86/odp_global_time.c \
 				  arch/default/odp_hash_crc32.c \
-				  arch/default/odp_random.c \
 				  arch/x86/odp_sysinfo_parse.c
 odpapiabiarchinclude_HEADERS += arch/x86/odp/api/abi/cpu_rdtsc.h \
 				arch/x86/odp/api/abi/cpu_time.h \
