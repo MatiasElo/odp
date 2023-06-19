@@ -12,7 +12,7 @@ mount -t hugetlbfs nodev /mnt/huge
 cd "$(dirname "$0")"/../..
 ./bootstrap
 ./configure \
-	CFLAGS="-O0 -coverage $CFLAGS" CXXFLAGS="-O0 -coverage $CXXFLAGS" LDFLAGS="--coverage $LDFLAGS" \
+	CFLAGS="-O0 -fprofile-arcs -ftest-coverage $CFLAGS" CXXFLAGS="-O0 -fprofile-arcs -ftest-coverage $CXXFLAGS" LDFLAGS="--coverage $LDFLAGS" \
 	--enable-debug=full --enable-helper-linux --enable-dpdk
 export CCACHE_DISABLE=1
 make -j $(nproc)
@@ -28,8 +28,5 @@ pushd ./test/validation/api/
 ODP_SCHEDULER=scalable CI_SKIP=pktio_test_pktin_event_sched make check
 ODP_SCHEDULER=sp       make check
 popd
-
-# Convert gcno files into gcov (required by Codecov)
-find . -type f -name '*.gcno' -exec gcov -pb {} +
 
 umount /mnt/huge
