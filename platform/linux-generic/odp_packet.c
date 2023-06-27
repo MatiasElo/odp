@@ -1514,7 +1514,7 @@ void odp_packet_print_data(odp_packet_t pkt, uint32_t offset,
 {
 	odp_packet_hdr_t *hdr = packet_hdr(pkt);
 	uint32_t bytes_per_row = 16;
-	int num_rows = (byte_len + bytes_per_row - 1) / bytes_per_row;
+	int num_rows = _ODP_DIV_ROUND_UP(byte_len, bytes_per_row);
 	int max_len = 256 + (3 * byte_len) + (3 * num_rows);
 	char str[max_len];
 	int len = 0;

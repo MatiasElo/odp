@@ -309,7 +309,7 @@ static uint32_t cache_size(uint32_t num)
 	if (!RTE_MEMPOOL_CACHE_MAX_SIZE)
 		return 0;
 
-	i = (num + RTE_MEMPOOL_CACHE_MAX_SIZE - 1) / RTE_MEMPOOL_CACHE_MAX_SIZE;
+	i = _ODP_DIV_ROUND_UP(num, RTE_MEMPOOL_CACHE_MAX_SIZE);
 	i = RTE_MAX(i, 2UL);
 	for (; i <= (num / 2); ++i)
 		if ((num % i) == 0) {

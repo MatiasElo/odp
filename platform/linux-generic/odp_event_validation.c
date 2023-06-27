@@ -88,7 +88,7 @@ static void print_event_data(odp_event_t event, odp_event_type_t type)
 	if (byte_len > EVENT_DATA_PRINT_MAX_LEN)
 		byte_len = EVENT_DATA_PRINT_MAX_LEN;
 
-	num_rows = (byte_len + bytes_per_row - 1) / bytes_per_row;
+	num_rows = _ODP_DIV_ROUND_UP(byte_len, bytes_per_row);
 	max_len = 256 + (3 * byte_len) + (3 * num_rows);
 	n = max_len - 1;
 
