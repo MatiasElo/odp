@@ -817,8 +817,8 @@ odp_pool_t _odp_pool_create(const char *name, const odp_pool_param_t *params,
 		 * pool. */
 		if (params->pkt.max_len != 0)
 			max_len = params->pkt.max_len;
-		if ((max_len + seg_len - 1) / seg_len > PKT_MAX_SEGS)
-			seg_len = (max_len + PKT_MAX_SEGS - 1) / PKT_MAX_SEGS;
+		if (_ODP_DIV_ROUND_UP(max_len, seg_len) > PKT_MAX_SEGS)
+			seg_len = _ODP_DIV_ROUND_UP(max_len, PKT_MAX_SEGS);
 		if (seg_len > CONFIG_PACKET_MAX_SEG_LEN) {
 			_ODP_ERR("Pool unable to store 'max_len' packet\n");
 			return ODP_POOL_INVALID;
@@ -826,7 +826,7 @@ odp_pool_t _odp_pool_create(const char *name, const odp_pool_param_t *params,
 
 		/* Multiple segments required per 'params->pkt.len' packet */
 		if (params->pkt.len > seg_len)
-			num *= (params->pkt.len + seg_len - 1) / seg_len;
+			num *= _ODP_DIV_ROUND_UP(params->pkt.len, seg_len);
 
 		/* Make sure 'params->pkt.max_num' limitation holds */
 		if (params->pkt.max_num && num > params->pkt.max_num) {
@@ -918,10 +918,8 @@ odp_pool_t _odp_pool_create(const char *name, const odp_pool_param_t *params,
 	/* Allocate extra memory for skipping packet buffers which cross huge
 	 * page boundaries. */
 	if (type == ODP_POOL_PACKET) {
-		num_extra = ((((uint64_t)num * block_size) +
-				FIRST_HP_SIZE - 1) / FIRST_HP_SIZE);
-		num_extra += ((((uint64_t)num_extra * block_size) +
-				FIRST_HP_SIZE - 1) / FIRST_HP_SIZE);
+		num_extra = _ODP_DIV_ROUND_UP(((uint64_t)num * block_size), FIRST_HP_SIZE);
+		num_extra += _ODP_DIV_ROUND_UP(((uint64_t)num_extra * block_size), FIRST_HP_SIZE);
 	}
 
 	/* Ring size must be larger than the number of items stored */

@@ -27,6 +27,7 @@ extern "C" {
 #include <odp/api/std_types.h>
 
 #include <odp_debug_internal.h>
+#include <odp_macros_internal.h>
 #include <odp_packet_internal.h>
 #include <odp_packet_io_internal.h>
 #include <odp_classification_datamodel.h>
@@ -84,7 +85,7 @@ static inline void _odp_cos_vector_enq(odp_queue_t queue, odp_event_t events[], 
 	const odp_pool_t pool = cos->vector.pool;
 	const uint32_t max_size = cos->vector.max_size;
 	uint32_t num_enq;
-	int num_pktv = (num + max_size - 1) / max_size;
+	int num_pktv = _ODP_DIV_ROUND_UP(num, max_size);
 	int ret;
 	int i;
 	odp_packet_vector_t pktv_tbl[num_pktv];

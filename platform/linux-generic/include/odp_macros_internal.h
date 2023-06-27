@@ -22,6 +22,13 @@ extern "C" {
 
 #define _ODP_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#define _ODP_DIV_ROUND_UP(a, b)			\
+__extension__ ({				\
+	__typeof__(a) tmp_a = (a);		\
+	__typeof__(b) tmp_b = (b);		\
+	(((tmp_a) + (tmp_b) - 1) / (tmp_b));	\
+})
+
 #define _ODP_MIN(a, b)				\
 	__extension__ ({			\
 		__typeof__(a) min_a = (a);	\
