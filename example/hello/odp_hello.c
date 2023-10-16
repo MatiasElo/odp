@@ -33,6 +33,7 @@ static int parse_args(int argc, char *argv[], options_t *opt)
 			printf("\nUsage:\n"
 			       "  [%s  Number of iterations]\n\n",
 			       args[0]);
+			printf("hello\n");
 			return -1;
 		}
 	}
