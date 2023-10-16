@@ -239,7 +239,7 @@ int main(int argc, char **argv)
 	odp_pktio_promisc_mode_set(global->if1, true);
 	(void)odp_pktio_promisc_mode(global->if0);
 	(void)odp_pktio_promisc_mode(global->if1);
-
+	printf("hello\n");
 	mtu1 = odp_pktin_maxlen(global->if0);
 	mtu2 = odp_pktout_maxlen(global->if1);
 	if (mtu1 && mtu2 && mtu1 > mtu2)
