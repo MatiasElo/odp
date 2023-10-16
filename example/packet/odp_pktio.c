@@ -419,7 +419,7 @@ int main(int argc, char *argv[])
 	params.pkt.len     = SHM_PKT_POOL_BUF_SIZE;
 	params.pkt.num     = SHM_PKT_POOL_SIZE/SHM_PKT_POOL_BUF_SIZE;
 	params.type        = ODP_POOL_PACKET;
-
+	printf("hello\n");
 	pool = odp_pool_create("packet_pool", &params);
 
 	if (pool == ODP_POOL_INVALID) {
