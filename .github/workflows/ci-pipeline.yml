@@ -4,7 +4,7 @@ on: [push, pull_request, merge_group]
 env:
   ARCH: x86_64
   CC: gcc
-  CONTAINER_NAMESPACE: ghcr.io/opendataplane/odp-docker-images
+  CONTAINER_NAMESPACE: ghcr.io/matiaselo/odp-docker-images
   OS: ubuntu_20.04
 
 jobs:
@@ -221,7 +221,7 @@ jobs:
       fail-fast: false
       matrix:
         cc: [gcc, clang]
-        os: ['centos_7', 'rocky_linux_8']
+        os: ['centos_7', 'rocky_linux_8', 'fedora_39']
         conf: ['--enable-abi-compat']
     steps:
       - uses: actions/checkout@v3
