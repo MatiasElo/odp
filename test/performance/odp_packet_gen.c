@@ -127,6 +127,8 @@ typedef struct test_options_t {
 	uint32_t wait_start_sec;
 	uint32_t mtu;
 	uint32_t num_custom_l3;
+	uint32_t lso_max_payload_len;
+	uint32_t lso_payload_offset;
 	uint8_t l4_proto;
 	int tx_mode;
 	odp_bool_t promisc_mode;
@@ -161,6 +163,9 @@ typedef struct thread_arg_t {
 
 	/* In direct_rx mode, pktin queue per pktio interface (per thread) */
 	odp_pktin_queue_t pktin[MAX_PKTIOS];
+
+	/* LSO profile per pktio interface */
+	odp_lso_profile_t lso_profile[MAX_PKTIOS];
 
 	/* Pre-built packets for TX thread */
 	odp_packet_t packet[MAX_PKTIOS][MAX_ALLOC_PACKETS];
@@ -207,6 +212,7 @@ typedef struct test_global_t {
 		odph_ethaddr_t eth_src;
 		odph_ethaddr_t eth_dst;
 		odp_pktio_t pktio;
+		odp_lso_profile_t lso_profile;
 		odp_pktout_queue_t pktout[MAX_THREADS];
 		odp_pktin_queue_t pktin[MAX_THREADS];
 		int started;
@@ -237,6 +243,9 @@ typedef struct {
 	uint64_t packets;
 } rx_lat_data_t;
 
+typedef int (*send_fn_t)(odp_pktout_queue_t pktout, odp_packet_t pkt[], uint32_t num,
+			 int tx_mode, uint64_t *drop_bytes, const odp_packet_lso_opt_t *lso_opt);
+
 static test_global_t *test_global;
 
 static void print_usage(void)
@@ -263,6 +272,9 @@ static void print_usage(void)
 	       "                            Double tagged VLANs 1 and 2: 0x88a8:1,0x8100:2\n"
 	       "  -r, --num_rx              Number of receive threads. Default: 1\n"
 	       "  -t, --num_tx              Number of transmit threads. Default: 1\n"
+	       "  -T, --lso <max_payload_len>\n"
+	       "                            Transmit packets with Large Send Offload (LSO) when\n"
+	       "                            max_payload_len > 0. Default: 0\n"
 	       "  -n, --num_pkt             Number of packets in the pool. Default: 1000\n"
 	       "  -l, --len                 Packet length. Default: 512\n"
 	       "  -L, --len_range <min,max,bins>\n"
@@ -514,6 +526,7 @@ static int parse_options(int argc, char *argv[], test_global_t *global)
 		{"eth_dst",     required_argument, NULL, 'e'},
 		{"num_rx",      required_argument, NULL, 'r'},
 		{"num_tx",      required_argument, NULL, 't'},
+		{"lso",         required_argument, NULL, 'T'},
 		{"num_pkt",     required_argument, NULL, 'n'},
 		{"proto",       required_argument, NULL, 'N'},
 		{"len",         required_argument, NULL, 'l'},
@@ -543,7 +556,7 @@ static int parse_options(int argc, char *argv[], test_global_t *global)
 		{NULL, 0, NULL, 0}
 	};
 
-	static const char *shortopts = "+i:e:r:t:n:N:l:L:D:m:M:b:x:g:v:s:d:o:p:c:CAq:u:w:W:PaU:h";
+	static const char *shortopts = "+i:e:r:t:T:n:N:l:L:D:m:M:b:x:g:v:s:d:o:p:c:CAq:u:w:W:PaU:h";
 
 	test_options->num_pktio  = 0;
 	test_options->num_rx     = 1;
@@ -583,6 +596,7 @@ static int parse_options(int argc, char *argv[], test_global_t *global)
 	test_options->wait_start_sec = 0;
 	test_options->mtu = 0;
 	test_options->l4_proto = L4_PROTO_UDP;
+	test_options->lso_max_payload_len = 0;
 
 	for (i = 0; i < MAX_PKTIOS; i++) {
 		memcpy(global->pktio[i].eth_dst.addr, default_eth_dst, 6);
@@ -682,6 +696,9 @@ static int parse_options(int argc, char *argv[], test_global_t *global)
 			break;
 		case 't':
 			test_options->num_tx = atoi(optarg);
+			break;
+		case 'T':
+			test_options->lso_max_payload_len = atoi(optarg);
 			break;
 		case 'n':
 			test_options->num_pkt = atoi(optarg);
@@ -904,6 +921,23 @@ static int parse_options(int argc, char *argv[], test_global_t *global)
 		return -1;
 	}
 
+	if (test_options->lso_max_payload_len) {
+		if (test_options->tx_mode != TX_MODE_COPY) {
+			ODPH_ERR("Error: LSO supported only with copy transmit mode\n");
+			return -1;
+		}
+		/* Initial support only for TCP and UDP L4 protocols */
+		if (test_options->l4_proto != L4_PROTO_TCP &&
+		    test_options->l4_proto != L4_PROTO_UDP) {
+			ODPH_ERR("Error: LSO supported only with TCP and UDP protocols\n");
+			return -1;
+		}
+
+		/* Use ODP_LSO_PROTO_IPV4 with UDP and ODP_LSO_PROTO_TCP_IPV4 with TCP */
+		test_options->lso_payload_offset = test_options->l4_proto == L4_PROTO_TCP ?
+							test_options->hdr_len :
+							test_options->hdr_len - ODPH_UDPHDR_LEN;
+	}
 	return 0;
 }
 
@@ -942,6 +976,74 @@ static int set_num_cpu(test_global_t *global)
 	}
 
 	odp_barrier_init(&global->barrier, num_cpu + 1);
+
+	return 0;
+}
+
+static int check_lso_capa(char *name, odp_pktio_capability_t *pktio_capa,
+			  test_options_t *test_options, odp_pool_t pool)
+{
+	odp_packet_t pkt;
+	uint32_t max_segments;
+	uint32_t pkt_payload;
+	uint32_t max_pkt_len = test_options->use_rand_pkt_len ?
+				test_options->rand_pkt_len_max : test_options->pkt_len;
+
+	if (pktio_capa->lso.max_profiles < test_options->num_pktio ||
+	    pktio_capa->lso.max_profiles_per_pktio == 0) {
+		ODPH_ERR("Error (%s): Not enough LSO profiles (max %" PRIu32 ")\n", name,
+			 ODPH_MIN(pktio_capa->lso.max_profiles,
+				  pktio_capa->lso.max_profiles_per_pktio));
+		return -1;
+	}
+
+	/* Check number of segments in a max length packet */
+	pkt = odp_packet_alloc(pool, max_pkt_len);
+	if (pkt == ODP_PACKET_INVALID) {
+		ODPH_ERR("Error (%s): Allocating test packet failed\n", name);
+		return -1;
+	}
+
+	max_segments = odp_packet_num_segs(pkt);
+	odp_packet_free(pkt);
+
+	if (max_segments > pktio_capa->lso.max_packet_segments) {
+		ODPH_ERR("Error (%s): Max LSO packet segments: %" PRIu32 "\n", name,
+			 pktio_capa->lso.max_packet_segments);
+		return -1;
+	}
+
+	/* Check max number of LSO segments */
+	pkt_payload = max_pkt_len - test_options->lso_payload_offset;
+	max_segments = (pkt_payload + test_options->lso_max_payload_len - 1) /
+				test_options->lso_max_payload_len;
+	if (max_segments > pktio_capa->lso.max_segments) {
+		ODPH_ERR("Error (%s): Max LSO segments: %" PRIu32 "\n", name,
+			 pktio_capa->lso.max_segments);
+		return -1;
+	}
+
+	if (test_options->lso_max_payload_len > pktio_capa->lso.max_payload_len) {
+		ODPH_ERR("Error (%s): Max LSO payload len: %" PRIu32 "\n", name,
+			 pktio_capa->lso.max_payload_len);
+		return -1;
+	}
+
+	if (test_options->lso_payload_offset > pktio_capa->lso.max_payload_offset) {
+		ODPH_ERR("Error (%s): Max LSO payload offset: %" PRIu32 "\n", name,
+			 pktio_capa->lso.max_payload_len);
+		return -1;
+	}
+
+	if (test_options->l4_proto == L4_PROTO_TCP && !pktio_capa->lso.proto.tcp_ipv4) {
+		ODPH_ERR("Error (%s): ODP_LSO_PROTO_TCP_IPV4 not supported\n", name);
+		return -1;
+	}
+
+	if (test_options->l4_proto == L4_PROTO_UDP && !pktio_capa->lso.proto.ipv4) {
+		ODPH_ERR("Error (%s): ODP_LSO_PROTO_IPV4 not supported\n", name);
+		return -1;
+	}
 
 	return 0;
 }
@@ -996,6 +1098,14 @@ static int open_pktios(test_global_t *global)
 	printf("  tx bursts:         %u\n", test_options->bursts);
 	printf("  tx burst gap:      %" PRIu64 " nsec\n",
 	       test_options->gap_nsec);
+
+	if (test_options->lso_max_payload_len) {
+		printf("  LSO protocol:      %s\n", test_options->l4_proto == L4_PROTO_UDP ?
+		       "ODP_LSO_PROTO_IPV4" : "ODP_LSO_PROTO_TCP_IPV4");
+		printf("  LSO max payload len: %" PRIu32 " bytes\n",
+		       test_options->lso_max_payload_len);
+	}
+
 	printf("  clock resolution:  %" PRIu64 " Hz\n", odp_time_local_res());
 	for (i = 0; i < test_options->num_vlan; i++) {
 		printf("  VLAN[%i]:           %x:%x\n", i,
@@ -1105,8 +1215,10 @@ static int open_pktios(test_global_t *global)
 
 	pktio_param.out_mode = num_tx ? ODP_PKTOUT_MODE_DIRECT : ODP_PKTOUT_MODE_DISABLED;
 
-	for (i = 0; i < num_pktio; i++)
+	for (i = 0; i < num_pktio; i++) {
 		global->pktio[i].pktio = ODP_PKTIO_INVALID;
+		global->pktio[i].lso_profile = ODP_LSO_PROFILE_INVALID;
+	}
 
 	/* Open and configure interfaces */
 	for (i = 0; i < num_pktio; i++) {
@@ -1196,7 +1308,31 @@ static int open_pktios(test_global_t *global)
 		odp_pktio_config_init(&pktio_config);
 		pktio_config.parser.layer = ODP_PROTO_LAYER_ALL;
 
-		odp_pktio_config(pktio, &pktio_config);
+		if (test_options->lso_max_payload_len) {
+			if (check_lso_capa(name, &pktio_capa, test_options, pool))
+				return -1;
+
+			pktio_config.enable_lso = true;
+		}
+
+		if (odp_pktio_config(pktio, &pktio_config)) {
+			ODPH_ERR("Error (%s): Pktio config failed.\n", name);
+			return -1;
+		}
+
+		if (test_options->lso_max_payload_len) {
+			odp_lso_profile_param_t param;
+
+			odp_lso_profile_param_init(&param);
+			param.lso_proto = test_options->l4_proto == L4_PROTO_TCP ?
+					ODP_LSO_PROTO_TCP_IPV4 : ODP_LSO_PROTO_IPV4;
+
+			global->pktio[i].lso_profile = odp_lso_profile_create(pktio, &param);
+			if (global->pktio[i].lso_profile == ODP_LSO_PROFILE_INVALID) {
+				ODPH_ERR("Error (%s): LSO profile create failed\n", name);
+				return -1;
+			}
+		}
 
 		if (test_options->promisc_mode && odp_pktio_promisc_mode(pktio) != 1) {
 			if (!pktio_capa.set_op.op.promisc_mode) {
@@ -1379,6 +1515,13 @@ static int close_pktios(test_global_t *global)
 
 		if (pktio == ODP_PKTIO_INVALID)
 			continue;
+
+		if (global->pktio[i].lso_profile != ODP_LSO_PROFILE_INVALID &&
+		    odp_lso_profile_destroy(global->pktio[i].lso_profile)) {
+			ODPH_ERR("Error (%s): LSO profile destroy failed.\n",
+				 test_options->pktio_name[i]);
+			ret = -1;
+		}
 
 		if (odp_pktio_close(pktio)) {
 			ODPH_ERR("Error (%s): Pktio close failed.\n", test_options->pktio_name[i]);
@@ -1919,7 +2062,8 @@ static inline uint32_t form_burst(odp_packet_t out_pkt[], uint32_t burst_size, u
 }
 
 static inline int send_burst(odp_pktout_queue_t pktout, odp_packet_t pkt[],
-			     uint32_t num, int tx_mode, uint64_t *drop_bytes)
+			     uint32_t num, int tx_mode, uint64_t *drop_bytes,
+			     const odp_packet_lso_opt_t *lso_opt ODP_UNUSED)
 {
 	int ret;
 	uint32_t sent;
@@ -1940,6 +2084,35 @@ static inline int send_burst(odp_pktout_queue_t pktout, odp_packet_t pkt[],
 
 		if (tx_mode != TX_MODE_DF)
 			odp_packet_free_multi(&pkt[sent], num_drop);
+	}
+
+	*drop_bytes = bytes;
+
+	return sent;
+}
+
+static inline int send_burst_lso(odp_pktout_queue_t pktout, odp_packet_t pkt[], uint32_t num,
+				 int tx_mode ODP_UNUSED, uint64_t *drop_bytes,
+				 const odp_packet_lso_opt_t *lso_opt)
+{
+	int ret;
+	uint32_t sent;
+	uint64_t bytes = 0;
+
+	ret = odp_pktout_send_lso(pktout, pkt, num, lso_opt);
+
+	sent = ret;
+	if (odp_unlikely(ret < 0))
+		sent = 0;
+
+	if (odp_unlikely(sent != num)) {
+		uint32_t i;
+		uint32_t num_drop = num - sent;
+
+		for (i = sent; i < num; i++)
+			bytes += odp_packet_len(pkt[i]);
+
+		odp_packet_free_multi(&pkt[sent], num_drop);
 	}
 
 	*drop_bytes = bytes;
@@ -1973,13 +2146,16 @@ static int tx_thread(void *arg)
 	const uint32_t num_tx = test_options->num_tx;
 	const uint16_t *rand_data = global->rand_data[thr];
 	const uint8_t l4_proto = test_options->l4_proto;
+	const uint8_t use_lso = !!test_options->lso_max_payload_len;
 	const int tx_mode = test_options->tx_mode;
 	const odp_bool_t calc_cs = test_options->calc_cs;
 	const odp_bool_t calc_latency = test_options->calc_latency;
 	int num_pktio = test_options->num_pktio;
 	odp_pktout_queue_t pktout[num_pktio];
+	odp_packet_lso_opt_t lso_opt[num_pktio];
 	uint32_t tot_packets = 0;
 	uint32_t num_bins = global->num_bins;
+	const send_fn_t send_burst_fn = use_lso ? send_burst_lso : send_burst;
 
 	tx_thr = thread_arg->tx_thr;
 	global->stat[thr].thread_type = TX_THREAD;
@@ -1993,6 +2169,10 @@ static int tx_thread(void *arg)
 
 		pktout[i] = thread_arg->pktout[i];
 		pkt_tbl = thread_arg->packet[i];
+
+		lso_opt[i].lso_profile = thread_arg->lso_profile[i];
+		lso_opt[i].payload_offset = test_options->lso_payload_offset;
+		lso_opt[i].max_payload_len = test_options->lso_max_payload_len;
 
 		if (alloc_packets(pool, pkt_tbl, num_alloc, global)) {
 			ret = -1;
@@ -2058,7 +2238,8 @@ static int tx_thread(void *arg)
 					continue;
 				}
 
-				sent = send_burst(pktout[i], pkt, num, tx_mode, &drop_bytes);
+				sent = send_burst_fn(pktout[i], pkt, num, tx_mode, &drop_bytes,
+								     &lso_opt[i]);
 
 				if (odp_unlikely(sent < 0)) {
 					ret = -1;
@@ -2140,6 +2321,8 @@ static int start_workers(test_global_t *global, odp_instance_t instance)
 			 * (per TX thread) */
 			pktout = global->pktio[j].pktout[tx_thr];
 			global->thread_arg[i].pktout[j] = pktout;
+
+			global->thread_arg[i].lso_profile[j] = global->pktio[j].lso_profile;
 		}
 
 		odph_thread_param_init(&thr_param[i]);
