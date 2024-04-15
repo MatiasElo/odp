@@ -62,6 +62,19 @@ int main(int argc ODP_UNUSED, char *argv[] ODP_UNUSED)
 	if (ODPH_ABS(--a) != 2)
 		ret++;
 
+	if (ODPH_DIV_ROUND_UP(10, 1) != 10)
+		ret++;
+
+	a = 10;
+	b = 3;
+	if (ODPH_DIV_ROUND_UP(a, ++b) != 3)
+		ret++;
+
+	printf("A=%d B=%d\n", a, b);
+
+	if (ODPH_DIV_ROUND_UP(7, 2) != 4)
+		ret++;
+
 	if (!ret)
 		printf("All tests passed\n");
 	else

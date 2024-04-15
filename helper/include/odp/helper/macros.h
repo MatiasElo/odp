@@ -57,6 +57,16 @@ extern "C" {
 	})
 
 /**
+ * Return rounded up division result
+ */
+#define ODPH_DIV_ROUND_UP(a, b)				\
+	__extension__ ({				\
+		__typeof__(a) tmp_a = (a);		\
+		__typeof__(b) tmp_b = (b);		\
+		(((tmp_a) + (tmp_b) - 1) / (tmp_b));	\
+	})
+
+/**
  * @}
  */
 
