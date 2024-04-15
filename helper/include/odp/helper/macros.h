@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause
- * Copyright(C) 2023 Nokia
+ * Copyright(C) 2023-2025 Nokia
  */
 
 /**
@@ -54,6 +54,16 @@ extern "C" {
 	__extension__ ({			\
 		__typeof__(v) abs_v = (v);	\
 		abs_v < 0 ? -abs_v : abs_v;	\
+	})
+
+/**
+ * Return rounded up division result
+ */
+#define ODPH_DIV_ROUNDUP(divident, divisor)		\
+	__extension__ ({				\
+		__typeof__(a) tmp_a = (divident);	\
+		__typeof__(b) tmp_b = (divisor);	\
+		(((tmp_a) + (tmp_b) - 1) / (tmp_b));	\
 	})
 
 /**

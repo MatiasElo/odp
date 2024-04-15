@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause
- * Copyright(C) 2023 Nokia
+ * Copyright(C) 2023-2025 Nokia
  */
 
 #include <odp_api.h>
@@ -60,6 +60,20 @@ int main(int argc ODP_UNUSED, char *argv[] ODP_UNUSED)
 
 	a = -1;
 	if (ODPH_ABS(--a) != 2)
+		ret++;
+
+	if (ODPH_DIV_ROUNDUP(10, 1) != 10)
+		ret++;
+
+	a = 10;
+	b = 3;
+	if (ODPH_DIV_ROUNDUP(a, ++b) != 3)
+		ret++;
+
+	if (ODPH_DIV_ROUNDUP(7, 2) != 4)
+		ret++;
+
+	if (ODPH_DIV_ROUNDUP(0, 10) != 0)
 		ret++;
 
 	if (!ret)
