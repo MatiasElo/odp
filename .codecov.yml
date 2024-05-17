@@ -1,4 +1,5 @@
 codecov:
+  disable_default_path_fixes: true
   notify:
     require_ci_to_pass: no
     wait_for_ci: no
