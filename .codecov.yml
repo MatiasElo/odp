@@ -4,11 +4,6 @@ codecov:
     require_ci_to_pass: no
     wait_for_ci: no
 
-fixes:
-  - "/home/runner/work/odp/odp/::"
-  - "home/runner/work/odp/odp/::"
-  - "home/runner/work/odp/odp::"
-
 coverage:
   precision: 2
   round: down
