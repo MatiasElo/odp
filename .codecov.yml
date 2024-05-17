@@ -28,3 +28,6 @@ comment: false
 
 ignore:
   - "platform/linux-generic/miniz"
+
+fixes:
+  - "/home/runner/work/odp/odp/::"
