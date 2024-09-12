@@ -52,6 +52,8 @@ extern "C" {
  *     - Timeout event (odp_timeout_t) from a timer
  * - ODP_EVENT_IPSEC_STATUS
  *     - IPSEC status update event (odp_ipsec_status_t)
+ * - ODP_EVENT_VECTOR
+ *     - Vector of events (odp_event_t) as odp_event_vector_t
  * - ODP_EVENT_PACKET_VECTOR
  *     - Vector of packet events (odp_packet_t) as odp_packet_vector_t
  * - ODP_EVENT_PACKET_TX_COMPL
