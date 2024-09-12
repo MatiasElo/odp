@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause
  * Copyright (c) 2018 Linaro Limited
+ * Copyright (c) 2024 Nokia
  */
 
 /**
@@ -16,6 +17,7 @@
 extern "C" {
 #endif
 
+#include <odp/api/event_vector_types.h>
 #include <odp/api/schedule_types.h>
 
 /** @defgroup odp_queue ODP QUEUE
@@ -35,6 +37,11 @@ extern "C" {
 /**
  * @def ODP_QUEUE_NAME_LEN
  * Maximum queue name length, including the null character
+ */
+
+/**
+ * @def ODP_QUEUE_MAX_VECTORS
+ * Maximum number of vector aggregators per queue
  */
 
 /**
@@ -290,6 +297,29 @@ typedef struct odp_queue_param_t {
 	  * capability. The value of zero means implementation specific
 	  * default size. The default value is 0. */
 	uint32_t size;
+
+	/** Number of vector aggregators
+	  *
+	  * When >= 1, event vectoring is enabled and configured according to
+	  * vector configuration parameters. Otherwise, vector configuration
+	  * parameters are ignored. When vectoring is enabled, events may be
+	  * delivered both as event vector events and normal events. The default
+	  * value is 0.
+	  */
+	uint32_t num_vector;
+
+	/** Vector configuration parameters
+	  *
+	  * When 'num_vector' > 1, events enqueued to this queue are vectorized
+	  * using vector context 0 by default. odp_queue_enq_vector() function
+	  * can be used to utilize other vector aggregators.
+	  *
+	  * ToDo:
+	  * - Add e.g. odp_event_vector_context_create()/destroy() for sharing
+	  *   vector aggregators between queues?
+	  * - Need large amount of vector aggregators?
+	  */
+	odp_event_vector_config_t vector[ODP_QUEUE_MAX_VECTORS];
 
 } odp_queue_param_t;
 
