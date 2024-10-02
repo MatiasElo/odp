@@ -13,6 +13,7 @@
 
 #include <odp/api/align.h>
 #include <odp/api/debug.h>
+#include <odp/api/event_vector.h>
 #include <odp/api/packet.h>
 
 #include <odp/api/plat/event_vector_inline_types.h>
@@ -53,6 +54,11 @@ ODP_STATIC_ASSERT(sizeof(odp_event_vector_hdr_t) <= ODP_CACHE_LINE_SIZE,
 static inline odp_event_vector_hdr_t *_odp_packet_vector_hdr(odp_packet_vector_t pktv)
 {
 	return (odp_event_vector_hdr_t *)(uintptr_t)pktv;
+}
+
+static inline odp_event_vector_hdr_t *_odp_event_vector_hdr(odp_event_vector_t evv)
+{
+	return (odp_event_vector_hdr_t *)(uintptr_t)evv;
 }
 
 /**
