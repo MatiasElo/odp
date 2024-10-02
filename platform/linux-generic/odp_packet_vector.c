@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause
- * Copyright (c) 2020-2022 Nokia
+ * Copyright (c) 2020-2024 Nokia
  */
 
 #include <odp/api/align.h>
@@ -21,11 +21,11 @@
 
 /* Packet vector header field offsets for inline functions */
 const _odp_event_vector_inline_offset_t _odp_event_vector_inline ODP_ALIGNED_CACHE = {
-	.packet    = offsetof(odp_event_vector_hdr_t, packet),
-	.pool      = offsetof(odp_event_vector_hdr_t, event_hdr.pool),
-	.size      = offsetof(odp_event_vector_hdr_t, size),
+	.event      = offsetof(odp_event_vector_hdr_t, event),
+	.pool       = offsetof(odp_event_vector_hdr_t, event_hdr.pool),
+	.size       = offsetof(odp_event_vector_hdr_t, size),
 	.uarea_addr = offsetof(odp_event_vector_hdr_t, uarea_addr),
-	.flags     = offsetof(odp_event_vector_hdr_t, flags)
+	.flags      = offsetof(odp_event_vector_hdr_t, flags)
 };
 
 #include <odp/visibility_end.h>
@@ -57,17 +57,17 @@ odp_packet_vector_t odp_packet_vector_alloc(odp_pool_t pool_hdl)
 
 void odp_packet_vector_free(odp_packet_vector_t pktv)
 {
-	odp_event_vector_hdr_t *pktv_hdr = _odp_packet_vector_hdr(pktv);
+	odp_event_vector_hdr_t *evv_hdr = _odp_packet_vector_hdr(pktv);
 
-	pktv_hdr->size = 0;
-	pktv_hdr->flags.all_flags = 0;
+	evv_hdr->size = 0;
+	evv_hdr->flags.all_flags = 0;
 
 	_odp_event_free(odp_packet_vector_to_event(pktv));
 }
 
 int odp_packet_vector_valid(odp_packet_vector_t pktv)
 {
-	odp_event_vector_hdr_t *pktv_hdr;
+	odp_event_vector_hdr_t *evv_hdr;
 	odp_event_t ev;
 	pool_t *pool;
 	uint32_t i;
@@ -83,14 +83,14 @@ int odp_packet_vector_valid(odp_packet_vector_t pktv)
 	if (odp_event_type(ev) != ODP_EVENT_PACKET_VECTOR)
 		return 0;
 
-	pktv_hdr = _odp_packet_vector_hdr(pktv);
-	pool = _odp_pool_entry(pktv_hdr->event_hdr.pool);
+	evv_hdr = _odp_packet_vector_hdr(pktv);
+	pool = _odp_pool_entry(evv_hdr->event_hdr.pool);
 
-	if (odp_unlikely(pktv_hdr->size > pool->params.vector.max_size))
+	if (odp_unlikely(evv_hdr->size > pool->params.vector.max_size))
 		return 0;
 
-	for (i = 0; i < pktv_hdr->size; i++) {
-		if (pktv_hdr->packet[i] == ODP_PACKET_INVALID)
+	for (i = 0; i < evv_hdr->size; i++) {
+		if (odp_packet_from_event(evv_hdr->event[i]) == ODP_PACKET_INVALID)
 			return 0;
 	}
 
@@ -104,19 +104,19 @@ void odp_packet_vector_print(odp_packet_vector_t pktv)
 	int len = 0;
 	int n = max_len - 1;
 	uint32_t i;
-	odp_event_vector_hdr_t *pktv_hdr = _odp_packet_vector_hdr(pktv);
+	odp_event_vector_hdr_t *evv_hdr = _odp_packet_vector_hdr(pktv);
 
 	len += _odp_snprint(&str[len], n - len, "Packet vector info\n");
 	len += _odp_snprint(&str[len], n - len, "------------------\n");
 	len += _odp_snprint(&str[len], n - len, "  handle         0x%" PRIx64 "\n",
 			    odp_packet_vector_to_u64(pktv));
-	len += _odp_snprint(&str[len], n - len, "  size           %" PRIu32 "\n", pktv_hdr->size);
+	len += _odp_snprint(&str[len], n - len, "  size           %" PRIu32 "\n", evv_hdr->size);
 	len += _odp_snprint(&str[len], n - len, "  flags          0x%" PRIx32 "\n",
-			    pktv_hdr->flags.all_flags);
-	len += _odp_snprint(&str[len], n - len, "  user area      %p\n", pktv_hdr->uarea_addr);
+			    evv_hdr->flags.all_flags);
+	len += _odp_snprint(&str[len], n - len, "  user area      %p\n", evv_hdr->uarea_addr);
 
-	for (i = 0; i < pktv_hdr->size; i++) {
-		odp_packet_t pkt = pktv_hdr->packet[i];
+	for (i = 0; i < evv_hdr->size; i++) {
+		odp_packet_t pkt = odp_packet_from_event(evv_hdr->event[i]);
 		char seg_str[max_len];
 		int str_len;
 
