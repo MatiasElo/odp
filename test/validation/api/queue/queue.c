@@ -33,6 +33,8 @@ typedef struct {
 		odp_atomic_u32_t counter;
 	} pair;
 
+	odp_queue_param_t param[MAX_QUEUES];
+
 	struct {
 		uint32_t num_event;
 	} thread[ODP_THREAD_COUNT_MAX];
@@ -41,6 +43,7 @@ typedef struct {
 
 static int queue_context = 0xff;
 static odp_pool_t pool;
+static test_globals_t *globals;
 
 static void generate_name(char *name, uint32_t index)
 {
@@ -56,7 +59,6 @@ static void generate_name(char *name, uint32_t index)
 static int queue_suite_init(void)
 {
 	odp_shm_t shm;
-	test_globals_t *globals;
 	odp_pool_param_t params;
 	int num_workers;
 
@@ -251,7 +253,7 @@ static void queue_test_create_destroy_multi(void)
 {
 	odp_queue_capability_t capa;
 	odp_queue_param_t param_single;
-	odp_queue_param_t param[MAX_QUEUES];
+	odp_queue_param_t *param = globals->param;
 	odp_queue_t queue[MAX_QUEUES];
 	const char *name[MAX_QUEUES] = {NULL, "aaa", NULL, "bbb", "ccc", NULL, "ddd"};
 	uint32_t num_queues, num_created;
