@@ -44,6 +44,11 @@
 /** Maximum number of results to be held */
 #define TEST_MAX_BENCH 40
 
+typedef enum {
+	TEST_MODE_THROUGHPUT = 0,
+	TEST_MODE_LATENCY,
+} test_mode_t;
+
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define NO_PATH(file_name) (strrchr((file_name), '/') ? \
 			    strrchr((file_name), '/') + 1 : (file_name))
@@ -55,15 +60,19 @@
 	{.name = #run_fn, .run = run_fn, .init = init_fn, .term = term_fn, .desc = alt_name, \
 	 .cond = cond_fn}
 
+#define BENCH_LAT_INFO(run_fn, init_fn, term_fn, cond_fn, alt_name) \
+	{.name = alt_name, .run = run_fn, .init = init_fn, .term = term_fn, .cond = cond_fn}
+
 /**
  * Parsed command line arguments
  */
 typedef struct {
-	int bench_idx;   /** Benchmark index to run indefinitely */
-	int burst_size;  /** Burst size for *_multi operations */
-	int cache_size;  /** Pool cache size */
-	int time;        /** Measure time vs. CPU cycles */
-	uint32_t rounds; /** Rounds per test case */
+	int bench_idx;    /** Benchmark index to run indefinitely */
+	int burst_size;   /** Burst size for *_multi operations */
+	int cache_size;   /** Pool cache size */
+	int time;         /** Measure time vs. CPU cycles */
+	uint32_t rounds;  /** Rounds per test case */
+	test_mode_t mode; /** Test mode */
 } appl_args_t;
 
 /**
@@ -72,8 +81,12 @@ typedef struct {
 typedef struct {
 	/** Application (parsed) arguments */
 	appl_args_t appl;
-	/** Common benchmark suite data */
-	bench_suite_t suite;
+	union {
+		/** Common benchmark suite data */
+		bench_suite_t suite;
+		/** Common latency benchmark suite data */
+		bench_tm_suite_t suite_lat;
+	};
 	/** Buffer pool */
 	odp_pool_t pool;
 	/** Buffer size */
@@ -97,7 +110,10 @@ typedef struct {
 	/** CPU mask as string */
 	char cpumask_str[ODP_CPUMASK_STR_SIZE];
 	/** Array for storing results */
-	double result[TEST_MAX_BENCH];
+	union {
+		double result[TEST_MAX_BENCH];
+		bench_tm_result_t result_lat[TEST_MAX_BENCH];
+	};
 } args_t;
 
 /** Global pointer to args */
@@ -188,6 +204,24 @@ static int buffer_from_event(void)
 	return i;
 }
 
+static int buffer_from_event_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_from_event()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		buf_tbl[i] = odp_buffer_from_event(event_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int buffer_from_event_multi(void)
 {
 	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
@@ -202,6 +236,26 @@ static int buffer_from_event_multi(void)
 	return i;
 }
 
+static int buffer_from_event_multi_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	int burst_size = gbl_args->appl.burst_size;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_from_event_multi()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_buffer_from_event_multi(&buf_tbl[i * burst_size],
+					    &event_tbl[i * burst_size], burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int buffer_to_event(void)
 {
 	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
@@ -210,6 +264,24 @@ static int buffer_to_event(void)
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		event_tbl[i] = odp_buffer_to_event(buf_tbl[i]);
+
+	return i;
+}
+
+static int buffer_to_event_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_to_event()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		event_tbl[i] = odp_buffer_to_event(buf_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -228,6 +300,26 @@ static int buffer_to_event_multi(void)
 	return i;
 }
 
+static int buffer_to_event_multi_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	int burst_size = gbl_args->appl.burst_size;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_to_event_multi()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_buffer_to_event_multi(&buf_tbl[i * burst_size],
+					  &event_tbl[i * burst_size], burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int buffer_addr(void)
 {
 	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
@@ -240,6 +332,24 @@ static int buffer_addr(void)
 	return i;
 }
 
+static int buffer_addr_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	void **ptr_tbl = gbl_args->ptr_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_addr()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ptr_tbl[i] = odp_buffer_addr(buf_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int buffer_size(void)
 {
 	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
@@ -247,6 +357,23 @@ static int buffer_size(void)
 
 	for (int i = 0; i < TEST_REPEAT_COUNT; i++)
 		ret += odp_buffer_size(buf_tbl[i]);
+
+	return ret;
+}
+
+static int buffer_size_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	uint32_t ret = 0;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_size()");
+
+	for (int i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ret += odp_buffer_size(buf_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return ret;
 }
@@ -263,6 +390,24 @@ static int buffer_user_area(void)
 	return i;
 }
 
+static int buffer_user_area_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	void **ptr_tbl = gbl_args->ptr_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_user_area()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ptr_tbl[i] = odp_buffer_user_area(buf_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int buffer_pool(void)
 {
 	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
@@ -275,6 +420,24 @@ static int buffer_pool(void)
 	return i;
 }
 
+static int buffer_pool_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	odp_pool_t *pool_tbl = gbl_args->pool_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_pool()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		pool_tbl[i] = odp_buffer_pool(buf_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int buffer_alloc(void)
 {
 	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
@@ -283,6 +446,24 @@ static int buffer_alloc(void)
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		buf_tbl[i] = odp_buffer_alloc(pool);
+
+	return i;
+}
+
+static int buffer_alloc_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	odp_pool_t pool = gbl_args->pool;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_alloc()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		buf_tbl[i] = odp_buffer_alloc(pool);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -300,6 +481,25 @@ static int buffer_alloc_multi(void)
 	return num;
 }
 
+static int buffer_alloc_multi_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	odp_pool_t pool = gbl_args->pool;
+	int burst_size = gbl_args->appl.burst_size;
+	int num = 0;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_alloc_multi()");
+
+	for (int i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		num += odp_buffer_alloc_multi(pool, &buf_tbl[num], burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return num;
+}
+
 static int buffer_free(void)
 {
 	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
@@ -307,6 +507,23 @@ static int buffer_free(void)
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		odp_buffer_free(buf_tbl[i]);
+
+	return i;
+}
+
+static int buffer_free_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_free()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_buffer_free(buf_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -323,6 +540,23 @@ static int buffer_free_multi(void)
 	return i;
 }
 
+static int buffer_free_multi_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	int burst_size = gbl_args->appl.burst_size;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_free_multi()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_buffer_free_multi(&buf_tbl[i * burst_size], burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+	return i;
+}
+
 static int buffer_alloc_free(void)
 {
 	odp_pool_t pool = gbl_args->pool;
@@ -335,6 +569,33 @@ static int buffer_alloc_free(void)
 			return 0;
 
 		odp_buffer_free(buf);
+	}
+	return i;
+}
+
+static int buffer_alloc_free_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_pool_t pool = gbl_args->pool;
+	odp_time_t t1, t2;
+	int i;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_alloc()");
+	uint8_t id2 = bench_tm_func_register(res, "odp_buffer_free()");
+
+	for (i = 0; i < repeat_count; i++) {
+		odp_buffer_t buf;
+
+		t1 = odp_time_local_strict();
+		buf = odp_buffer_alloc(pool);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+
+		if (odp_unlikely(buf == ODP_BUFFER_INVALID))
+			return 0;
+
+		t1 = odp_time_local_strict();
+		odp_buffer_free(buf);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id2);
 	}
 	return i;
 }
@@ -357,6 +618,35 @@ static int buffer_alloc_free_multi(void)
 	return i;
 }
 
+static int buffer_alloc_free_multi_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	odp_pool_t pool = gbl_args->pool;
+	int burst_size = gbl_args->appl.burst_size;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_alloc_multi()");
+	uint8_t id2 = bench_tm_func_register(res, "odp_buffer_free_multi()");
+
+	for (i = 0; i < repeat_count; i++) {
+		int num;
+
+		t1 = odp_time_local_strict();
+		num = odp_buffer_alloc_multi(pool, buf_tbl, burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+
+		if (odp_unlikely(num < 1))
+			return 0;
+
+		t1 = odp_time_local_strict();
+		odp_buffer_free_multi(buf_tbl, num);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id2);
+	}
+	return i;
+}
+
 static int buffer_is_valid(void)
 {
 	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
@@ -365,6 +655,22 @@ static int buffer_is_valid(void)
 	for (int i = 0; i < TEST_REPEAT_COUNT; i++)
 		ret += odp_buffer_is_valid(buf_tbl[i]);
 
+	return ret;
+}
+
+static int buffer_is_valid_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_buffer_t *buf_tbl = gbl_args->buf_tbl;
+	uint32_t ret = 0;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_buffer_is_valid()");
+
+	for (int i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ret += odp_buffer_is_valid(buf_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 	return ret;
 }
 
@@ -380,6 +686,23 @@ static int event_type(void)
 	return i;
 }
 
+static int event_type_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	odp_event_type_t *event_type_tbl = gbl_args->event_type_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_type()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		event_type_tbl[i] = odp_event_type(event_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+	return i;
+}
+
 static int event_subtype(void)
 {
 	odp_event_t *event_tbl = gbl_args->event_tbl;
@@ -388,6 +711,24 @@ static int event_subtype(void)
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		event_subtype_tbl[i] = odp_event_subtype(event_tbl[i]);
+
+	return i;
+}
+
+static int event_subtype_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	odp_event_subtype_t *event_subtype_tbl = gbl_args->event_subtype_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_subtype()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		event_subtype_tbl[i] = odp_event_subtype(event_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -401,6 +742,25 @@ static int event_types(void)
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		event_type_tbl[i] = odp_event_types(event_tbl[i], &event_subtype_tbl[i]);
+
+	return i;
+}
+
+static int event_types_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	odp_event_type_t *event_type_tbl = gbl_args->event_type_tbl;
+	odp_event_subtype_t *event_subtype_tbl = gbl_args->event_subtype_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_types()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		event_type_tbl[i] = odp_event_types(event_tbl[i], &event_subtype_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -421,6 +781,28 @@ static int event_types_multi(void)
 	return i;
 }
 
+static int event_types_multi_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	odp_event_type_t *event_type_tbl = gbl_args->event_type_tbl;
+	odp_event_subtype_t *event_subtype_tbl = gbl_args->event_subtype_tbl;
+	int burst_size = gbl_args->appl.burst_size;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_types_multi()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_event_types_multi(&event_tbl[i * burst_size],
+				      &event_type_tbl[i * burst_size],
+				      &event_subtype_tbl[i * burst_size], burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int event_types_multi_no_sub(void)
 {
 	odp_event_t *event_tbl = gbl_args->event_tbl;
@@ -431,6 +813,26 @@ static int event_types_multi_no_sub(void)
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		odp_event_types_multi(&event_tbl[i * burst_size],
 				      &event_type_tbl[i * burst_size], NULL, burst_size);
+
+	return i;
+}
+
+static int event_types_multi_no_sub_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	odp_event_type_t *event_type_tbl = gbl_args->event_type_tbl;
+	int burst_size = gbl_args->appl.burst_size;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_types_multi()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_event_types_multi(&event_tbl[i * burst_size],
+				      &event_type_tbl[i * burst_size], NULL, burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -449,6 +851,26 @@ static int event_type_multi(void)
 	return ret;
 }
 
+static int event_type_multi_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	odp_event_type_t *event_type_tbl = gbl_args->event_type_tbl;
+	int burst_size = gbl_args->appl.burst_size;
+	uint32_t ret = 0;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_type_multi()");
+
+	for (int i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ret += odp_event_type_multi(&event_tbl[i * burst_size], burst_size,
+					    &event_type_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return ret;
+}
+
 static int event_pool(void)
 {
 	odp_event_t *event_tbl = gbl_args->event_tbl;
@@ -461,6 +883,24 @@ static int event_pool(void)
 	return i;
 }
 
+static int event_pool_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	odp_pool_t *pool_tbl = gbl_args->pool_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_pool()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		pool_tbl[i] = odp_event_pool(event_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int event_user_area(void)
 {
 	odp_event_t *event_tbl = gbl_args->event_tbl;
@@ -469,6 +909,24 @@ static int event_user_area(void)
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		ptr_tbl[i] = odp_event_user_area(event_tbl[i]);
+
+	return i;
+}
+
+static int event_user_area_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	void **ptr_tbl = gbl_args->ptr_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_user_area()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ptr_tbl[i] = odp_event_user_area(event_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -488,10 +946,29 @@ static int event_user_area_and_flag(void)
 	return (ret < 0);
 }
 
+static int event_user_area_and_flag_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	void **ptr_tbl = gbl_args->ptr_tbl;
+	int ret = 0;
+	int flag;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_user_area_and_flag()");
+
+	for (int i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ptr_tbl[i] = odp_event_user_area_and_flag(event_tbl[i], &flag);
+		ret += flag;
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return (ret < 0);
+}
+
 static int event_is_valid(void)
 {
 	odp_event_t *event_tbl = gbl_args->event_tbl;
-
 	uint32_t ret = 0;
 
 	for (int i = 0; i < TEST_REPEAT_COUNT; i++)
@@ -500,14 +977,47 @@ static int event_is_valid(void)
 	return ret;
 }
 
+static int event_is_valid_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	uint32_t ret = 0;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_is_valid()");
+
+	for (int i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ret += odp_event_is_valid(event_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return ret;
+}
+
 static int event_free(void)
 {
 	odp_event_t *event_tbl = gbl_args->event_tbl;
-
 	int i;
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		odp_event_free(event_tbl[i]);
+
+	return i;
+}
+
+static int event_free_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_free()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_event_free(event_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -524,6 +1034,24 @@ static int event_free_multi(void)
 	return i;
 }
 
+static int event_free_multi_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	int burst_size = gbl_args->appl.burst_size;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_free_multi()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_event_free_multi(&event_tbl[i * burst_size], burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return i;
+}
+
 static int event_free_sp(void)
 {
 	odp_event_t *event_tbl = gbl_args->event_tbl;
@@ -532,6 +1060,24 @@ static int event_free_sp(void)
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		odp_event_free_sp(&event_tbl[i * burst_size], burst_size);
+
+	return i;
+}
+
+static int event_free_sp_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	int burst_size = gbl_args->appl.burst_size;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_free_sp()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_event_free_sp(&event_tbl[i * burst_size], burst_size);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -547,6 +1093,23 @@ static int event_flow_id(void)
 	return !ret;
 }
 
+static int event_flow_id_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	uint32_t ret = 0;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_flow_id()");
+
+	for (int i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		ret += odp_event_flow_id(event_tbl[i]);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
+
+	return !ret;
+}
+
 static int event_flow_id_set(void)
 {
 	odp_event_t *event_tbl = gbl_args->event_tbl;
@@ -554,6 +1117,23 @@ static int event_flow_id_set(void)
 
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		odp_event_flow_id_set(event_tbl[i], 0);
+
+	return i;
+}
+
+static int event_flow_id_set_lat(bench_tm_result_t *res, int repeat_count)
+{
+	odp_event_t *event_tbl = gbl_args->event_tbl;
+	int i;
+	odp_time_t t1, t2;
+	uint8_t id1 = bench_tm_func_register(res, "odp_event_flow_id_set()");
+
+	for (i = 0; i < repeat_count; i++) {
+		t1 = odp_time_local_strict();
+		odp_event_flow_id_set(event_tbl[i], 0);
+		t2 = odp_time_local_strict();
+		bench_tm_func_record(t2, t1, res, id1);
+	}
 
 	return i;
 }
@@ -572,7 +1152,10 @@ static void usage(char *progname)
 	       "Optional OPTIONS:\n"
 	       "  -b, --burst <num>       Test burst size.\n"
 	       "  -c, --cache_size <num>  Pool cache size.\n"
-	       "  -i, --index <idx>       Benchmark index to run indefinitely.\n"
+	       "  -i, --index <idx>       Benchmark index to run (indefinitely in throughput mode).\n"
+	       "  -m, --mode <arg>        Test measures:\n"
+	       "                          0: Throughput (default)\n"
+	       "                          1: Latency\n"
 	       "  -r, --rounds <num>      Run each test case 'num' times (default %u).\n"
 	       "  -t, --time <opt>        Time measurement. 0: measure CPU cycles (default), 1: measure time\n"
 	       "  -h, --help              Display help and exit.\n\n"
@@ -594,17 +1177,19 @@ static void parse_args(int argc, char *argv[], appl_args_t *appl_args)
 		{"burst", required_argument, NULL, 'b'},
 		{"cache_size", required_argument, NULL, 'c'},
 		{"index", required_argument, NULL, 'i'},
+		{"mode", required_argument, NULL, 'm'},
 		{"rounds", required_argument, NULL, 'r'},
 		{"time", required_argument, NULL, 't'},
 		{"help", no_argument, NULL, 'h'},
 		{NULL, 0, NULL, 0}
 	};
 
-	static const char *shortopts =  "c:b:i:r:t:h";
+	static const char *shortopts =  "c:b:i:m:r:t:h";
 
 	appl_args->bench_idx = 0; /* Run all benchmarks */
 	appl_args->burst_size = TEST_DEF_BURST;
 	appl_args->cache_size = -1;
+	appl_args->mode = TEST_MODE_THROUGHPUT;
 	appl_args->rounds = TEST_ROUNDS;
 	appl_args->time = 0;
 
@@ -628,6 +1213,9 @@ static void parse_args(int argc, char *argv[], appl_args_t *appl_args)
 		case 'i':
 			appl_args->bench_idx = atoi(optarg);
 			break;
+		case 'm':
+			appl_args->mode = atoi(optarg);
+			break;
 		case 'r':
 			appl_args->rounds = atoi(optarg);
 			break;
@@ -647,6 +1235,11 @@ static void parse_args(int argc, char *argv[], appl_args_t *appl_args)
 
 	if (appl_args->rounds < 1) {
 		printf("Invalid number test rounds: %d\n", appl_args->rounds);
+		exit(EXIT_FAILURE);
+	}
+
+	if (appl_args->mode != TEST_MODE_THROUGHPUT && appl_args->mode != TEST_MODE_LATENCY) {
+		printf("Invalid test mode: %d\n", appl_args->mode);
 		exit(EXIT_FAILURE);
 	}
 
@@ -671,6 +1264,8 @@ static void print_info(void)
 		printf("Pool cache size:   default\n");
 	else
 		printf("Pool cache size:   %d\n", gbl_args->appl.cache_size);
+	printf("Mode:              %s\n", gbl_args->appl.mode == TEST_MODE_LATENCY ?
+						"latency" : "throughput");
 	printf("Measurement unit:  %s\n", gbl_args->appl.time ? "nsec" : "CPU cycles");
 	printf("Test rounds:       %u\n", gbl_args->appl.rounds);
 	printf("\n");
@@ -679,26 +1274,55 @@ static void print_info(void)
 static int bench_buffer_export(void *data)
 {
 	args_t *gbl_args = data;
+	uint64_t num;
 	int ret = 0;
 
-	if (test_common_write("%s", gbl_args->appl.time ?
-			      "Function name,Average nsec per function call\n" :
-			      "Function name,Average CPU cycles per function call\n")) {
+	/* Throughput mode */
+	if (gbl_args->appl.mode == TEST_MODE_THROUGHPUT) {
+		if (test_common_write("%s", gbl_args->appl.time ?
+				"Function name,Average nsec per function call\n" :
+				"Function name,Average CPU cycles per function call\n")) {
+			ret = -1;
+			goto exit;
+		}
+
+		for (int i = 0; i < gbl_args->suite.num_bench; i++) {
+			if (test_common_write("odp_%s,%f\n",
+					      gbl_args->suite.bench[i].name,
+					      gbl_args->suite.result[i])) {
+				ret = -1;
+				goto exit;
+			}
+		}
+		goto exit;
+	}
+
+	/* Latency mode */
+	if (test_common_write("%s", "Function name,Latency (nsec) per function call (min),"
+				"Latency (nsec) per function call (avg),"
+				"Latency (nsec) per function call (max)\n")) {
 		ret = -1;
 		goto exit;
 	}
 
-	for (int i = 0; i < gbl_args->suite.num_bench; i++) {
-		if (test_common_write("odp_%s,%f\n",
-				      gbl_args->suite.bench[i].name,
-				      gbl_args->suite.result[i])) {
-			ret = -1;
-			goto exit;
+	for (uint32_t i = 0; i < gbl_args->suite_lat.num_bench; i++) {
+		bench_tm_result_t *result = &gbl_args->result_lat[i];
+
+		for (int j = 0; j < result->num; j++) {
+			num = ODPH_MAX(result->func[j].num, 1U);
+			if (test_common_write("%s,%" PRIu64 ",%" PRIu64 ",%" PRIu64 "\n",
+					      result->func[j].name,
+					      odp_time_to_ns(result->func[j].min),
+					      odp_time_to_ns(result->func[j].tot) / num,
+					      odp_time_to_ns(result->func[j].max))) {
+				ret = -1;
+				goto exit;
+			}
 		}
 	}
 
 exit:
-	test_common_write_term();
+		test_common_write_term();
 
 	return ret;
 }
@@ -742,6 +1366,46 @@ bench_info_t test_suite[] = {
 
 ODP_STATIC_ASSERT(ODPH_ARRAY_SIZE(test_suite) < TEST_MAX_BENCH,
 		  "Result array is too small to hold all the results");
+
+bench_tm_info_t test_lat_suite[] = {
+	BENCH_LAT_INFO(buffer_from_event_lat, create_events, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(buffer_from_event_multi_lat, create_events_multi, free_buffers_multi,
+		       NULL, NULL),
+	BENCH_LAT_INFO(buffer_to_event_lat, create_buffers, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(buffer_to_event_multi_lat, create_buffers_multi, free_buffers_multi,
+		       NULL, NULL),
+	BENCH_LAT_INFO(buffer_addr_lat, create_buffers, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(buffer_size_lat, create_buffers, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(buffer_user_area_lat, create_buffers, free_buffers, check_uarea, NULL),
+	BENCH_LAT_INFO(buffer_pool_lat, create_buffers, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(buffer_alloc_lat, NULL, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(buffer_alloc_multi_lat, NULL, free_buffers_multi, NULL, NULL),
+	BENCH_LAT_INFO(buffer_free_lat, create_buffers, NULL, NULL, NULL),
+	BENCH_LAT_INFO(buffer_free_multi_lat, create_buffers_multi, NULL, NULL, NULL),
+	BENCH_LAT_INFO(buffer_alloc_free_lat, NULL, NULL, NULL, "buffer_alloc_free"),
+	BENCH_LAT_INFO(buffer_alloc_free_multi_lat, NULL, NULL, NULL, "buffer_alloc_free_multi"),
+	BENCH_LAT_INFO(buffer_is_valid_lat, create_buffers, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(event_type_lat, create_events, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(event_subtype_lat, create_events, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(event_types_lat, create_events, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(event_types_multi_lat, create_events_multi, free_buffers_multi, NULL, NULL),
+	BENCH_LAT_INFO(event_types_multi_no_sub_lat, create_events_multi, free_buffers_multi,
+		       NULL, NULL),
+	BENCH_LAT_INFO(event_type_multi_lat, create_events_multi, free_buffers_multi, NULL, NULL),
+	BENCH_LAT_INFO(event_pool_lat, create_events, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(event_user_area_lat, create_events, free_buffers, check_uarea, NULL),
+	BENCH_LAT_INFO(event_user_area_and_flag_lat, create_events, free_buffers, check_uarea,
+		       NULL),
+	BENCH_LAT_INFO(event_is_valid_lat, create_events, free_buffers, NULL, NULL),
+	BENCH_LAT_INFO(event_free_lat, create_events, NULL, NULL, NULL),
+	BENCH_LAT_INFO(event_free_multi_lat, create_events_multi, NULL, NULL, NULL),
+	BENCH_LAT_INFO(event_free_sp_lat, create_events_multi, NULL, NULL, NULL),
+	BENCH_LAT_INFO(event_flow_id_lat, create_events, free_buffers, check_flow_aware, NULL),
+	BENCH_LAT_INFO(event_flow_id_set_lat, create_events, free_buffers, check_flow_aware, NULL),
+};
+
+ODP_STATIC_ASSERT(ODPH_ARRAY_SIZE(test_lat_suite) < TEST_MAX_BENCH,
+		  "Result array is too small to hold all latency test results");
 
 /**
  * ODP buffer microbenchmark application
@@ -810,15 +1474,26 @@ int main(int argc, char *argv[])
 	/* Parse and store the application arguments */
 	parse_args(argc, argv, &gbl_args->appl);
 
-	bench_suite_init(&gbl_args->suite);
-	gbl_args->suite.bench = test_suite;
-	gbl_args->suite.num_bench = ODPH_ARRAY_SIZE(test_suite);
-	gbl_args->suite.indef_idx = gbl_args->appl.bench_idx;
-	gbl_args->suite.rounds = gbl_args->appl.rounds;
-	gbl_args->suite.repeat_count = TEST_REPEAT_COUNT;
-	gbl_args->suite.measure_time = !!gbl_args->appl.time;
-	if (common_options.is_export)
-		gbl_args->suite.result = gbl_args->result;
+	if (gbl_args->appl.mode == TEST_MODE_LATENCY) {
+		bench_tm_suite_init(&gbl_args->suite_lat);
+		gbl_args->suite_lat.bench = test_lat_suite;
+		gbl_args->suite_lat.num_bench = ODPH_ARRAY_SIZE(test_lat_suite);
+		gbl_args->suite_lat.rounds = gbl_args->appl.rounds;
+		gbl_args->suite_lat.repeat_count = TEST_REPEAT_COUNT;
+		gbl_args->suite_lat.bench_idx = gbl_args->appl.bench_idx;
+		if (common_options.is_export)
+			gbl_args->suite_lat.result = gbl_args->result_lat;
+	} else {
+		bench_suite_init(&gbl_args->suite);
+		gbl_args->suite.bench = test_suite;
+		gbl_args->suite.num_bench = ODPH_ARRAY_SIZE(test_suite);
+		gbl_args->suite.indef_idx = gbl_args->appl.bench_idx;
+		gbl_args->suite.rounds = gbl_args->appl.rounds;
+		gbl_args->suite.repeat_count = TEST_REPEAT_COUNT;
+		gbl_args->suite.measure_time = !!gbl_args->appl.time;
+		if (common_options.is_export)
+			gbl_args->suite.result = gbl_args->result;
+	}
 
 	/* Get default worker cpumask */
 	if (odp_cpumask_default_worker(&default_mask, 1) != 1) {
@@ -905,7 +1580,7 @@ int main(int argc, char *argv[])
 	thr_common.share_param = 1;
 
 	odph_thread_param_init(&thr_param);
-	thr_param.start = bench_run;
+	thr_param.start = gbl_args->appl.mode == TEST_MODE_LATENCY ? bench_tm_run : bench_run;
 	thr_param.arg = &gbl_args->suite;
 	thr_param.thr_type = ODP_THREAD_WORKER;
 
