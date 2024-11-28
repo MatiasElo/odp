@@ -161,7 +161,7 @@ typedef int (*bench_tm_run_fn_t)(bench_tm_result_t *res, int repeat_count);
 
 /* Timed benchmark test case */
 typedef struct {
-	/* Test case name */
+	/* Optional test case name */
 	const char *name;
 
 	/* Optional precondition to run test */

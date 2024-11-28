@@ -176,12 +176,20 @@ static void init_result(bench_tm_result_t *res)
 	}
 }
 
-static void print_results(bench_tm_result_t *res)
+static void print_results(const char *name, int index, bench_tm_result_t *res)
 {
+	if (name)
+		printf("[%02d] %-26s\n", index, name);
+
 	for (uint8_t i = 0; i < res->num; i++) {
 		uint64_t num = res->func[i].num ? res->func[i].num : 1;
 
-		printf("     %-38s    %-12" PRIu64 " %-12" PRIu64 " %-12" PRIu64 "\n",
+		if (i == 0 && name == NULL)
+			printf("[%02d] ", index);
+		else
+			printf("     ");
+
+		printf("%-38s    %-12" PRIu64 " %-12" PRIu64 " %-12" PRIu64 "\n",
 		       res->func[i].name,
 		       odp_time_to_ns(res->func[i].min),
 		       odp_time_to_ns(res->func[i].tot) / num,
@@ -235,10 +243,9 @@ int bench_tm_run(void *arg)
 
 			if (bench->term != NULL)
 				bench->term();
-
 		}
-		printf("[%02d] %-26s\n", j + 1, bench->name);
-		print_results(&res);
+
+		print_results(bench->name, j + 1, &res);
 
 		if (suite->result)
 			suite->result[j] = res;
