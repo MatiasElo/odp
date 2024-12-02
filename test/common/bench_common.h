@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause
- * Copyright (c) 2023 Nokia
+ * Copyright (c) 2023-2025 Nokia
  */
 
 /** @cond _ODP_HIDE_FROM_DOXYGEN_ */
@@ -85,10 +85,10 @@ typedef struct {
 	/* Break worker loop if set to 1 */
 	odp_atomic_u32_t exit_worker;
 
-	/* Number of API function calls per test case */
+	/* Number of test function calls per round */
 	uint64_t repeat_count;
 
-	/* Number of rounds per test case */
+	/* Number of test rounds */
 	uint64_t rounds;
 
 	/* Dummy test result output */
@@ -195,7 +195,10 @@ typedef struct {
 	/* Suite exit value output */
 	int retval;
 
-	/* Number of rounds per test case */
+	/* Number of test function calls per round */
+	uint32_t repeat_count;
+
+	/* Number of test rounds */
 	uint64_t rounds;
 
 	/* Break worker loop if set to 1 */

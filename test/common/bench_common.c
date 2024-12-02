@@ -133,11 +133,18 @@ void bench_tm_suite_init(bench_tm_suite_t *suite)
 	memset(suite, 0, sizeof(bench_tm_suite_t));
 
 	odp_atomic_init_u32(&suite->exit_worker, 0);
+
+	suite->rounds = 1;
 }
 
 uint8_t bench_tm_func_register(bench_tm_result_t *res, const char *func_name)
 {
 	uint8_t num_func = res->num;
+
+	for (uint8_t i = 0; i < num_func; i++) {
+		if (strcmp(res->func[i].name, func_name) == 0)
+			return i;
+	}
 
 	if (num_func >= BENCH_TM_MAX_FUNC)
 		ODPH_ABORT("Too many test functions (max %d)\n", BENCH_TM_MAX_FUNC);
@@ -204,38 +211,37 @@ int bench_tm_run(void *arg)
 	printf("\nLatency (nsec) per function call               min          avg          max\n");
 	printf("------------------------------------------------------------------------------\n");
 
-	for (uint32_t j = 0; j < suite->num_bench; j++) {
-		const bench_tm_info_t *bench = &suite->bench[j];
-		uint64_t rounds = suite->rounds;
+	for (uint32_t i = 0; i < suite->num_bench; i++) {
+		const bench_tm_info_t *bench = &suite->bench[i];
+		uint64_t max_rounds = ODPH_MAX(1U, suite->rounds);
+		const uint32_t repeat_count = ODPH_MAX(1U, suite->repeat_count);
 		bench_tm_result_t res;
 
 		/* Run only selected test case */
-		if (suite->bench_idx && (j + 1) != suite->bench_idx)
+		if (suite->bench_idx && (i + 1) != suite->bench_idx)
 			continue;
 
 		if (bench->cond != NULL && !bench->cond()) {
 			printf("[%02d] %-41s n/a          n/a          n/a\n",
-			       j + 1, bench->name);
+			       i + 1, bench->name);
 			continue;
 		}
 
-		if (bench->max_rounds && bench->max_rounds < rounds)
-			rounds = bench->max_rounds;
+		if (bench->max_rounds && bench->max_rounds < max_rounds)
+			max_rounds = bench->max_rounds;
 
-		/*
-		 * Run each test twice.
-		 * Results from the first warm-up round are ignored.
-		 */
-		for (uint32_t i = 0; i < 2; i++) {
+		/* Results from the first warm-up round are ignored. */
+		for (uint32_t round = 0; round <= max_rounds; round++) {
 			if (odp_atomic_load_u32(&suite->exit_worker))
 				return 0;
 
-			init_result(&res);
+			if (round < 2)
+				init_result(&res);
 
 			if (bench->init != NULL)
 				bench->init();
 
-			if (bench->run(&res, rounds)) {
+			if (bench->run(&res, repeat_count)) {
 				ODPH_ERR("Benchmark %s failed\n", bench->name);
 				suite->retval = -1;
 				return -1;
@@ -245,10 +251,10 @@ int bench_tm_run(void *arg)
 				bench->term();
 		}
 
-		print_results(bench->name, j + 1, &res);
+		print_results(bench->name, i + 1, &res);
 
 		if (suite->result)
-			suite->result[j] = res;
+			suite->result[i] = res;
 	}
 	printf("\n");
 

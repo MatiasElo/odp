@@ -1128,7 +1128,7 @@ int main(int argc, char *argv[])
 	bench_tm_suite_init(&gbl_args->suite);
 	gbl_args->suite.bench = test_suite;
 	gbl_args->suite.num_bench = ODPH_ARRAY_SIZE(test_suite);
-	gbl_args->suite.rounds = gbl_args->opt.rounds;
+	gbl_args->suite.repeat_count = gbl_args->opt.rounds;
 	gbl_args->suite.bench_idx = gbl_args->opt.case_idx;
 	if (common_options.is_export)
 		gbl_args->suite.result = gbl_args->result;
