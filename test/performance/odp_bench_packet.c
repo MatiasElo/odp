@@ -1161,7 +1161,7 @@ static int packet_input_index(void)
 	for (i = 0; i < TEST_REPEAT_COUNT; i++)
 		ret += odp_packet_input_index(gbl_args->pkt_tbl[i]);
 
-	return (ret == 0) ? 1 : ret;
+	return (ret < 0);
 }
 
 static int packet_user_ptr(void)

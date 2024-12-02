@@ -485,7 +485,7 @@ static int event_user_area_and_flag(void)
 		ret += flag;
 	}
 
-	return ret;
+	return (ret < 0);
 }
 
 static int event_is_valid(void)

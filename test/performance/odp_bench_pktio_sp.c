@@ -312,7 +312,7 @@ static int pktio_capability(bench_tm_result_t *res, int repeat_count)
 
 		bench_tm_func_record(t2, t1, res, id1);
 	}
-	return 0;
+	return 1;
 }
 
 static int pktio_lookup(bench_tm_result_t *res, int repeat_count)
@@ -335,7 +335,7 @@ static int pktio_lookup(bench_tm_result_t *res, int repeat_count)
 
 		bench_tm_func_record(t2, t1, res, id1);
 	}
-	return 0;
+	return 1;
 }
 
 static int pktio_open_start_stop_close(bench_tm_result_t *res, int repeat_count)
@@ -438,7 +438,7 @@ static int pktio_open_start_stop_close(bench_tm_result_t *res, int repeat_count)
 		ODPH_ERR("Destroying pktio pool failed: %d\n", ret);
 		return -1;
 	}
-	return 0;
+	return 1;
 }
 
 static int pktio_stats(bench_tm_result_t *res, int repeat_count)
@@ -462,7 +462,7 @@ static int pktio_stats(bench_tm_result_t *res, int repeat_count)
 
 		bench_tm_func_record(t2, t1, res, id1);
 	}
-	return 0;
+	return 1;
 }
 
 static int pktio_stats_reset(bench_tm_result_t *res, int repeat_count)
@@ -485,7 +485,7 @@ static int pktio_stats_reset(bench_tm_result_t *res, int repeat_count)
 
 		bench_tm_func_record(t2, t1, res, id1);
 	}
-	return 0;
+	return 1;
 }
 
 static int pktin_queue_stats(bench_tm_result_t *res, int repeat_count)
@@ -516,7 +516,7 @@ static int pktin_queue_stats(bench_tm_result_t *res, int repeat_count)
 
 		bench_tm_func_record(t2, t1, res, id1);
 	}
-	return 0;
+	return 1;
 }
 
 static int pktin_event_queue_stats(bench_tm_result_t *res, int repeat_count)
@@ -547,7 +547,7 @@ static int pktin_event_queue_stats(bench_tm_result_t *res, int repeat_count)
 
 		bench_tm_func_record(t2, t1, res, id1);
 	}
-	return 0;
+	return 1;
 }
 
 static int pktout_queue_stats(bench_tm_result_t *res, int repeat_count)
@@ -578,7 +578,7 @@ static int pktout_queue_stats(bench_tm_result_t *res, int repeat_count)
 
 		bench_tm_func_record(t2, t1, res, id1);
 	}
-	return 0;
+	return 1;
 }
 
 static int pktout_event_queue_stats(bench_tm_result_t *res, int repeat_count)
@@ -609,7 +609,7 @@ static int pktout_event_queue_stats(bench_tm_result_t *res, int repeat_count)
 
 		bench_tm_func_record(t2, t1, res, id1);
 	}
-	return 0;
+	return 1;
 }
 
 static int find_first_supported_l3_pmr(const odp_cls_capability_t *capa, odp_cls_pmr_term_t *term)
@@ -785,7 +785,7 @@ destroy_cos:
 	for (uint32_t i = 0; i < queue_created; i++)
 		ret = odp_queue_destroy(queue[i]);
 
-	return ret;
+	return !ret;
 }
 
 static int bench_pktio_sp_export(void *data)

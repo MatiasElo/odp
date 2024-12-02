@@ -99,8 +99,8 @@ int bench_run(void *arg)
 			if (bench->term != NULL)
 				bench->term();
 
-			if (!ret) {
-				ODPH_ERR("Benchmark odp_%s failed\n", desc);
+			if (ret < 1) {
+				ODPH_ERR("Benchmark odp_%s failed: %d\n", desc, ret);
 				suite->retval = -1;
 				return -1;
 			}
@@ -212,6 +212,7 @@ int bench_tm_run(void *arg)
 	printf("------------------------------------------------------------------------------\n");
 
 	for (uint32_t i = 0; i < suite->num_bench; i++) {
+		int ret;
 		const bench_tm_info_t *bench = &suite->bench[i];
 		uint64_t max_rounds = ODPH_MAX(1U, suite->rounds);
 		const uint32_t repeat_count = ODPH_MAX(1U, suite->repeat_count);
@@ -241,8 +242,10 @@ int bench_tm_run(void *arg)
 			if (bench->init != NULL)
 				bench->init();
 
-			if (bench->run(&res, repeat_count)) {
-				ODPH_ERR("Benchmark %s failed\n", bench->name);
+			ret = bench->run(&res, repeat_count);
+			if (ret < 1) {
+				ODPH_ERR("Benchmark %s failed: %d\n",
+					 bench->name ? bench->name : "n/a", ret);
 				suite->retval = -1;
 				return -1;
 			}
