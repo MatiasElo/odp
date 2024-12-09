@@ -188,7 +188,6 @@ static inline uint32_t scd(_odp_u128_t *var, _odp_u128_t neu, int mm)
 }
 
 #include "odp_atomic.h"
-#include "odp_wait_until.h"
 
 #ifdef __ARM_FEATURE_UNALIGNED
 #define _ODP_UNALIGNED 1

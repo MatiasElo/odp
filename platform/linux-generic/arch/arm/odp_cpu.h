@@ -73,7 +73,6 @@ do {							\
 #endif  /* CONFIG_DMBSTR */
 
 #include "../default/odp_atomic.h"
-#include "../default/odp_wait_until.h"
 
 #ifdef __ARM_FEATURE_UNALIGNED
 #define _ODP_UNALIGNED 1
