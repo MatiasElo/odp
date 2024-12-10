@@ -13,21 +13,6 @@
 #include <odp_types_internal.h>
 #include <limits.h>
 
-#ifdef CONFIG_DMBSTR
-
-#define atomic_store_release(loc, val, ro)		\
-do {							\
-	_odp_release_barrier(ro);			\
-	__atomic_store_n(loc, val, __ATOMIC_RELAXED);   \
-} while (0)
-
-#else
-
-#define atomic_store_release(loc, val, ro) \
-	__atomic_store_n(loc, val, __ATOMIC_RELEASE)
-
-#endif  /* CONFIG_DMBSTR */
-
 #define HAS_ACQ(mo) ((mo) != __ATOMIC_RELAXED && (mo) != __ATOMIC_RELEASE)
 #define HAS_RLS(mo) ((mo) == __ATOMIC_RELEASE || (mo) == __ATOMIC_ACQ_REL || \
 		     (mo) == __ATOMIC_SEQ_CST)
@@ -59,51 +44,6 @@ __lockfree_compare_exchange_16(register _odp_u128_t *var, _odp_u128_t *exp,
 	} while (odp_unlikely(scd(var, old == expected ? neu : old, sc_mo)));
 	*exp = old; /* Always update, atomically read value */
 	return old == expected;
-}
-
-static inline _odp_u128_t __lockfree_exchange_16(_odp_u128_t *var,
-						 _odp_u128_t neu, int mo)
-{
-	register _odp_u128_t old;
-	int ll_mo = LL_MO(mo);
-	int sc_mo = SC_MO(mo);
-
-	do {
-		/* Atomicity of LLD is not guaranteed */
-		old = lld(var, ll_mo);
-		/* Must successfully write back to verify atomicity of LLD */
-	} while (odp_unlikely(scd(var, neu, sc_mo)));
-	return old;
-}
-
-static inline _odp_u128_t __lockfree_fetch_and_16(_odp_u128_t *var,
-						  _odp_u128_t mask, int mo)
-{
-	register _odp_u128_t old;
-	int ll_mo = LL_MO(mo);
-	int sc_mo = SC_MO(mo);
-
-	do {
-		/* Atomicity of LLD is not guaranteed */
-		old = lld(var, ll_mo);
-		/* Must successfully write back to verify atomicity of LLD */
-	} while (odp_unlikely(scd(var, old & mask, sc_mo)));
-	return old;
-}
-
-static inline _odp_u128_t __lockfree_fetch_or_16(_odp_u128_t *var,
-						 _odp_u128_t mask, int mo)
-{
-	register _odp_u128_t old;
-	int ll_mo = LL_MO(mo);
-	int sc_mo = SC_MO(mo);
-
-	do {
-		/* Atomicity of LLD is not guaranteed */
-		old = lld(var, ll_mo);
-		/* Must successfully write back to verify atomicity of LLD */
-	} while (odp_unlikely(scd(var, old | mask, sc_mo)));
-	return old;
 }
 
 #else
@@ -165,45 +105,6 @@ __lockfree_compare_exchange_16(register _odp_u128_t *var, _odp_u128_t *exp,
 	return old == expected;
 }
 
-static inline _odp_u128_t __lockfree_exchange_16(_odp_u128_t *var,
-						 _odp_u128_t neu, int mo)
-{
-	_odp_u128_t old;
-	_odp_u128_t expected;
-
-	do {
-		expected = *var;
-		old = cas_u128(var, expected, neu, mo);
-	} while (old != expected);
-	return old;
-}
-
-static inline _odp_u128_t __lockfree_fetch_and_16(_odp_u128_t *var,
-						  _odp_u128_t mask, int mo)
-{
-	_odp_u128_t old;
-	_odp_u128_t expected;
-
-	do {
-		expected = *var;
-		old = cas_u128(var, expected, expected & mask, mo);
-	} while (old != expected);
-	return old;
-}
-
-static inline _odp_u128_t __lockfree_fetch_or_16(_odp_u128_t *var,
-						 _odp_u128_t mask, int mo)
-{
-	_odp_u128_t old;
-	_odp_u128_t expected;
-
-	do {
-		expected = *var;
-		old = cas_u128(var, expected, expected | mask, mo);
-	} while (old != expected);
-	return old;
-}
-
 #endif  /* __ARM_FEATURE_QRDMX */
 
 static inline _odp_u128_t __lockfree_load_16(_odp_u128_t *var, int mo)
@@ -238,86 +139,6 @@ static inline int lockfree_cas_acq_rel_u128(_odp_u128_t *atomic,
 static inline int lockfree_check_u128(void)
 {
 	return 1;
-}
-
-/** Atomic bit set operations with memory ordering */
-#if defined(__SIZEOF_INT128__) && __SIZEOF_INT128__ == 16
-typedef _odp_u128_t bitset_t;
-#define ATOM_BITSET_SIZE (CHAR_BIT * __SIZEOF_INT128__)
-
-#elif __GCC_ATOMIC_LLONG_LOCK_FREE == 2 && \
-	__SIZEOF_LONG_LONG__ != __SIZEOF_LONG__
-typedef unsigned long long bitset_t;
-#define ATOM_BITSET_SIZE (CHAR_BIT * __SIZEOF_LONG_LONG__)
-
-#elif __GCC_ATOMIC_LONG_LOCK_FREE == 2 && __SIZEOF_LONG__ != __SIZEOF_INT__
-typedef unsigned long bitset_t;
-#define ATOM_BITSET_SIZE (CHAR_BIT * __SIZEOF_LONG__)
-
-#elif __GCC_ATOMIC_INT_LOCK_FREE == 2
-typedef unsigned int bitset_t;
-#define ATOM_BITSET_SIZE (CHAR_BIT * __SIZEOF_INT__)
-
-#else
-/* Target does not support lock-free atomic operations */
-typedef unsigned int bitset_t;
-#define ATOM_BITSET_SIZE (CHAR_BIT * __SIZEOF_INT__)
-#endif
-
-#if ATOM_BITSET_SIZE <= 32
-
-static inline bitset_t bitset_mask(uint32_t bit)
-{
-	return 1UL << bit;
-}
-
-#elif ATOM_BITSET_SIZE <= 64
-
-static inline bitset_t bitset_mask(uint32_t bit)
-{
-	return 1ULL << bit;
-}
-
-#elif ATOM_BITSET_SIZE <= 128
-
-static inline bitset_t bitset_mask(uint32_t bit)
-{
-	if (bit < 64)
-		return 1ULL << bit;
-	else
-		return (_odp_u128_t)(1ULL << (bit - 64)) << 64;
-}
-
-#else
-#error Unsupported size of bit sets (ATOM_BITSET_SIZE)
-#endif
-
-static inline bitset_t atom_bitset_load(bitset_t *bs, int mo)
-{
-	return __lockfree_load_16(bs, mo);
-}
-
-static inline void atom_bitset_set(bitset_t *bs, uint32_t bit, int mo)
-{
-	(void)__lockfree_fetch_or_16(bs, bitset_mask(bit), mo);
-}
-
-static inline void atom_bitset_clr(bitset_t *bs, uint32_t bit, int mo)
-{
-	(void)__lockfree_fetch_and_16(bs, ~bitset_mask(bit), mo);
-}
-
-static inline bitset_t atom_bitset_xchg(bitset_t *bs, bitset_t neu, int mo)
-{
-	return __lockfree_exchange_16(bs, neu, mo);
-}
-
-static inline bitset_t atom_bitset_cmpxchg(bitset_t *bs, bitset_t *old,
-					   bitset_t neu, bool weak,
-					   int mo_success, int mo_failure)
-{
-	return __lockfree_compare_exchange_16(bs, old, neu, weak, mo_success,
-					      mo_failure);
 }
 
 #endif  /* PLATFORM_LINUXGENERIC_ARCH_ARM_ODP_ATOMIC_H */
