@@ -199,6 +199,9 @@ typedef struct odp_tm_queue_stats_t {
 	/** Number of packets with transmission errors. */
 	uint64_t errors;
 
+	/** Number of packets waiting for transmission. */
+	uint64_t depth;
+
 } odp_tm_queue_stats_t;
 
 /**
@@ -223,6 +226,9 @@ typedef struct odp_tm_queue_stats_capability_t {
 
 			/** See odp_tm_queue_stats_t::errors */
 			uint64_t errors          : 1;
+
+			/** See odp_tm_queue_stats_t::depth */
+			uint64_t depth           : 1;
 
 		} counter;
 
