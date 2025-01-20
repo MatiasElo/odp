@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause
  * Copyright (c) 2015-2018 Linaro Limited
- * Copyright (c) 2021-2022 Nokia
+ * Copyright (c) 2021-2025 Nokia
  */
 
 /**
@@ -90,6 +90,10 @@ typedef struct odp_pktio_stats_t {
 
 	/** Number of packets with transmission errors. */
 	uint64_t out_errors;
+
+	/** Number of packets waiting for transmission. */
+	uint64_t out_pending;
+
 } odp_pktio_stats_t;
 
 /**
@@ -131,6 +135,9 @@ typedef struct odp_pktout_queue_stats_t {
 
 	/** See odp_pktio_stats_t::out_errors */
 	uint64_t errors;
+
+	/** See odp_pktio_stats_t::out_pending */
+	uint64_t depth;
 
 } odp_pktout_queue_stats_t;
 
@@ -185,6 +192,9 @@ typedef struct odp_pktio_stats_capability_t {
 
 				/** See odp_pktio_stats_t::out_errors */
 				uint64_t out_errors         : 1;
+
+				/** See odp_pktio_stats_t::out_pending */
+				uint64_t out_pending        : 1;
 			} counter;
 
 			/** All bits of the bit field structure
@@ -239,6 +249,9 @@ typedef struct odp_pktio_stats_capability_t {
 
 				/** See odp_pktout_queue_stats_t::errors */
 				uint64_t errors             : 1;
+
+				/** See odp_pktout_queue_stats_t::depth */
+				uint64_t depth              : 1;
 			} counter;
 
 			/** All bits of the bit field structure
