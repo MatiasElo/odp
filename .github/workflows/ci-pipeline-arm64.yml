@@ -7,13 +7,27 @@ on: [push, pull_request, merge_group]
 env:
   ARCH: arm64
   CC: gcc
-  CONTAINER_NAMESPACE: ghcr.io/opendataplane/odp-docker-images
+  CONTAINER_NAMESPACE: ghcr.io/matiaselo/odp-docker-images
   OS: ubuntu_20.04
 
 jobs:
+  Setup:
+    runs-on: ubuntu-24.04
+    outputs:
+      runner: ${{ steps.step1.outputs.runner }}
+    steps:
+      - name: Check Repo
+        id: step1
+        run: |
+          if [ ${{ github.repository }} == 'OpenDataPlane/odp' ]; then
+            echo "runner=ah-ubuntu_22_04-c7g_2x-50" >> $GITHUB_OUTPUT
+          else
+            echo "runner=ubuntu-24.04-arm" >> $GITHUB_OUTPUT
+          fi
+
   Build_gcc:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -35,8 +49,8 @@ jobs:
         uses: ./.github/actions/build-failure-log
 
   Build_clang:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -60,8 +74,8 @@ jobs:
         uses: ./.github/actions/build-failure-log
 
   Build_static_u24:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     env:
       OS: ubuntu_24.04
       CONF: "--disable-shared --without-openssl --without-pcap"
@@ -79,8 +93,8 @@ jobs:
         uses: ./.github/actions/build-failure-log
 
   Build_OS:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -95,8 +109,8 @@ jobs:
         uses: ./.github/actions/build-failure-log
 
   Build_gcc_u24:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     env:
       OS: ubuntu_24.04
     strategy:
@@ -113,8 +127,8 @@ jobs:
         uses: ./.github/actions/build-failure-log
 
   Build_out-of-tree:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
@@ -124,8 +138,8 @@ jobs:
         uses: ./.github/actions/build-failure-log
 
   Build_XDP:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     env:
       CONF: "--enable-xdp"
       OS: ubuntu_22.04
@@ -142,8 +156,8 @@ jobs:
         uses: ./.github/actions/build-failure-log
 
   Run_distcheck:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -157,8 +171,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_gcc:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -183,8 +197,8 @@ jobs:
         uses: ./.github/actions/dump-log
 
   Run_clang:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -203,8 +217,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_CFLAGS:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -219,8 +233,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_OS:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -234,8 +248,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_sched_config:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
@@ -245,8 +259,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_stash_config:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
@@ -256,8 +270,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_scheduler_sp:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
@@ -267,8 +281,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_process_mode:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
@@ -279,8 +293,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_inline_timer:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
@@ -291,8 +305,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_packet_align:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
@@ -303,8 +317,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_dpdk-21_11:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
@@ -314,8 +328,8 @@ jobs:
         uses: ./.github/actions/run-failure-log
 
   Run_dpdk-23_11:
-    if: ${{ github.repository == 'OpenDataPlane/odp' }}
-    runs-on: ah-ubuntu_22_04-c7g_2x-50
+    needs: [Setup]
+    runs-on: ${{ needs.Setup.outputs.runner }}
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v4
