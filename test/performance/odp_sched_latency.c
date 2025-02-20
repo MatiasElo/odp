@@ -68,6 +68,7 @@ typedef struct {
 	int isolate;
 	int test_rounds;	/**< Number of test rounds (millions) */
 	int warm_up_rounds;	/**< Number of warm-up rounds */
+	uint64_t wait;
 	struct {
 		int queues;	/**< Number of scheduling queues */
 		int events;	/**< Number of events */
@@ -99,9 +100,11 @@ typedef struct {
 	/** Core specific stats */
 	core_stat_t	 core_stat[ODP_THREAD_COUNT_MAX];
 	odp_barrier_t    barrier; /**< Barrier for thread synchronization */
+	odp_atomic_u32_t threads_done;
 	odp_pool_t       pool;	  /**< Pool for allocating test events */
 	test_args_t      args;	  /**< Parsed command line arguments */
 	odp_queue_t      queue[NUM_PRIOS][MAX_QUEUES]; /**< Scheduled queues */
+	odp_queue_t      delay_queue;
 	test_common_options_t common_options;	/**< Result export options */
 
 	odp_schedule_group_t group[NUM_PRIOS][MAX_GROUPS];
@@ -421,7 +424,8 @@ static int test_schedule(int thr, test_globals_t *globals)
 	test_stat_t *stats;
 	int dst_idx, change_queue;
 	int warm_up_rounds = globals->args.warm_up_rounds;
-	uint64_t test_rounds = globals->args.test_rounds * (uint64_t)1000000;
+	uint64_t test_rounds = globals->args.test_rounds;
+	const odp_bool_t delay_samples = globals->args.wait > 0;
 
 	memset(&globals->core_stat[thr], 0, sizeof(core_stat_t));
 	globals->core_stat[thr].prio[HI_PRIO].min = UINT64_MAX;
@@ -461,6 +465,7 @@ static int test_schedule(int thr, test_globals_t *globals)
 
 		if (odp_unlikely(event->type == WARM_UP)) {
 			event->warm_up_rounds++;
+			i--;
 			if (event->warm_up_rounds >= warm_up_rounds)
 				event->type = SAMPLE;
 		} else {
@@ -477,8 +482,18 @@ static int test_schedule(int thr, test_globals_t *globals)
 		event->src_idx[event->prio] = dst_idx;
 		dst_queue = globals->queue[event->prio][dst_idx];
 
-		if (event->type == SAMPLE)
-			event->time_stamp = odp_time_global_strict();
+		if (event->type == SAMPLE) {
+			if (delay_samples) {
+				if (odp_queue_enq(globals->delay_queue, ev)) {
+					ODPH_ERR("Delay queue enqueue failed.\n");
+					odp_event_free(ev);
+					return -1;
+				}
+				continue;
+			} else {
+				event->time_stamp = odp_time_global_strict();
+			}
+		}
 
 		if (odp_queue_enq(dst_queue, ev)) {
 			ODPH_ERR("[%i] Queue enqueue failed.\n", thr);
@@ -506,6 +521,8 @@ static int test_schedule(int thr, test_globals_t *globals)
 	}
 
 	odp_barrier_wait(&globals->barrier);
+
+	odp_atomic_inc_u32(&globals->threads_done);
 
 	if (thr == MAIN_THREAD) {
 		odp_schedule_resume();
@@ -578,7 +595,7 @@ static void usage(void)
 	       "Usage: ./odp_sched_latency [options]\n"
 	       "Optional OPTIONS:\n"
 	       "  -c, --count <number> CPU count, 0=all available, default=1\n"
-	       "  -d, --duration <number> Test duration in scheduling rounds (millions), default=10, min=1\n"
+	       "  -d, --duration <number> Test duration in scheduling rounds, default=1000, min=1\n"
 	       "  -f, --forward-mode <mode> Selection of target queue\n"
 	       "               0: Random (default)\n"
 	       "               1: Incremental\n"
@@ -607,6 +624,7 @@ static void usage(void)
 	       "               1: ODP_SCHED_SYNC_ATOMIC\n"
 	       "               2: ODP_SCHED_SYNC_ORDERED\n"
 	       "  -w, --warm-up <number> Number of warm-up rounds, default=100, min=1\n"
+	       "  -W, --wait <number> Wait nsec between sample events, default=0\n"
 	       "  -h, --help   Display help and exit.\n\n");
 }
 
@@ -636,19 +654,21 @@ static void parse_args(int argc, char *argv[], test_args_t *args)
 		{"hi-prio-events", required_argument, NULL, 'p'},
 		{"sync", required_argument, NULL, 's'},
 		{"warm-up", required_argument, NULL, 'w'},
+		{"wait", required_argument, NULL, 'W'},
 		{"sample-per-prio", no_argument, NULL, 'r'},
 		{"help", no_argument, NULL, 'h'},
 		{NULL, 0, NULL, 0}
 	};
 
-	static const char *shortopts = "+c:d:f:g:i:l:t:m:n:o:p:s:w:rh";
+	static const char *shortopts = "+c:d:f:g:i:l:t:m:n:o:p:s:w:W:rh";
 
 	args->cpu_count = 1;
 	args->forward_mode = EVENT_FORWARD_RAND;
 	args->num_group = 0;
 	args->isolate = 0;
-	args->test_rounds = 10;
+	args->test_rounds = 1000;
 	args->warm_up_rounds = 100;
+	args->wait = 0;
 	args->sync_type = ODP_SCHED_SYNC_PARALLEL;
 	args->sample_per_prio = 0;
 	args->prio[LO_PRIO].queues = 64;
@@ -718,6 +738,9 @@ static void parse_args(int argc, char *argv[], test_args_t *args)
 			break;
 		case 'w':
 			args->warm_up_rounds = atoi(optarg);
+			break;
+		case 'W':
+			args->wait = strtoull(optarg, NULL, 10);
 			break;
 		case 'h':
 			usage();
@@ -941,7 +964,46 @@ static int create_queues(test_globals_t *globals)
 			randomize_queues(globals->queue[i], args->prio[i].queues, &seed);
 		}
 	}
+
+	odp_queue_param_init(&param);
+	param.type = ODP_QUEUE_TYPE_PLAIN;
+
+	globals->delay_queue = odp_queue_create("delay_queue", &param);
+	if (globals->delay_queue == ODP_QUEUE_INVALID) {
+		ODPH_ERR("Plain queue create failed\n");
+		return -1;
+	}
+
 	return 0;
+}
+
+static void delay_samples(test_globals_t *globals)
+{
+	while (odp_atomic_load_u32(&globals->threads_done) == 0) {
+		odp_event_t ev = odp_queue_deq(globals->delay_queue);
+		odp_buffer_t buf;
+		odp_queue_t dst_queue;
+		test_event_t *event;
+
+		if (ev == ODP_EVENT_INVALID)
+			continue;
+
+		buf = odp_buffer_from_event(ev);
+		event = odp_buffer_addr(buf);
+
+		dst_queue = globals->queue[event->prio][event->src_idx[event->prio]];
+
+		odp_time_wait_ns(globals->args.wait);
+
+		event->time_stamp = odp_time_global_strict();
+
+		if (odp_queue_enq(dst_queue, ev)) {
+			ODPH_ERR("Queue enqueue failed.\n");
+			odp_event_free(ev);
+			exit(EXIT_FAILURE);
+		}
+		// TODO: proper clean-up
+	}
 }
 
 /**
@@ -1028,8 +1090,9 @@ int main(int argc, char *argv[])
 	printf("  Worker threads:   %i\n", num_workers);
 	printf("  First CPU:        %i\n", odp_cpumask_first(&cpumask));
 	printf("  CPU mask:         %s\n", cpumaskstr);
-	printf("  Test rounds:      %iM\n", args.test_rounds);
+	printf("  Test rounds:      %i\n", args.test_rounds);
 	printf("  Warm-up rounds:   %i\n", args.warm_up_rounds);
+	printf("  Wait:             %" PRIu64 " ns\n", args.wait);
 	printf("  Isolated groups:  %i\n", args.isolate);
 	printf("  Number of groups: %i\n", num_group);
 	printf("  Created groups:   %i\n", tot_group);
@@ -1094,6 +1157,7 @@ int main(int argc, char *argv[])
 	}
 
 	odp_barrier_init(&globals->barrier, num_workers);
+	odp_atomic_init_u32(&globals->threads_done, 0);
 
 	/* Create and launch worker threads */
 	memset(thread_tbl, 0, sizeof(thread_tbl));
@@ -1109,6 +1173,8 @@ int main(int argc, char *argv[])
 	thr_param.thr_type = ODP_THREAD_WORKER;
 
 	odph_thread_create(thread_tbl, &thr_common, &thr_param, num_workers);
+
+	delay_samples(globals);
 
 	/* Wait for worker threads to terminate */
 	if (odph_thread_join(thread_tbl, num_workers) != num_workers)
@@ -1130,6 +1196,11 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
+	}
+
+	if (odp_queue_destroy(globals->delay_queue)) {
+		ODPH_ERR("Plain queue destroy failed\n");
+		err = -1;
 	}
 
 error:
