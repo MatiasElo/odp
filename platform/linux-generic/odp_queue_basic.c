@@ -152,7 +152,7 @@ static int queue_init_global(void)
 	}
 
 	_odp_queue_glb->queue_gbl_shm = shm;
-	mem_size = sizeof(uint32_t) * CONFIG_MAX_QUEUES *
+	mem_size = sizeof(uintptr_t) * CONFIG_MAX_QUEUES *
 		   (uint64_t)_odp_queue_glb->config.max_queue_size;
 
 	shm = odp_shm_reserve("_odp_queue_basic_rings", mem_size,
@@ -430,7 +430,7 @@ static int queue_destroy(odp_queue_t handle)
 	else if (queue->type == ODP_QUEUE_TYPE_SCHED)
 		empty = ring_st_u32_is_empty(&queue->ring_st);
 	else
-		empty = ring_mpmc_u32_is_empty(&queue->ring_mpmc);
+		empty = ring_mpmc_ptr_is_empty(&queue->ring_mpmc);
 
 	if (!empty) {
 		UNLOCK(queue);
@@ -536,8 +536,7 @@ static inline int _plain_queue_enq_multi(odp_queue_t handle,
 {
 	queue_entry_t *queue;
 	int ret, num_enq;
-	ring_mpmc_u32_t *ring_mpmc;
-	uint32_t event_idx[num];
+	ring_mpmc_ptr_t *ring_mpmc;
 
 	queue = qentry_from_handle(handle);
 	ring_mpmc = &queue->ring_mpmc;
@@ -545,10 +544,8 @@ static inline int _plain_queue_enq_multi(odp_queue_t handle,
 	if (_odp_sched_fn->ord_enq_multi(handle, (void **)event_hdr, num, &ret))
 		return ret;
 
-	event_index_from_hdr(event_idx, event_hdr, num);
-
-	num_enq = ring_mpmc_u32_enq_multi(ring_mpmc, queue->ring_data,
-					  queue->ring_mask, event_idx, num);
+	num_enq = ring_mpmc_ptr_enq_multi(ring_mpmc, queue->ring_data_ptr,
+					  queue->ring_mask, (const void **)event_hdr, num);
 
 	return num_enq;
 }
@@ -558,19 +555,16 @@ static inline int _plain_queue_deq_multi(odp_queue_t handle,
 {
 	int num_deq;
 	queue_entry_t *queue;
-	ring_mpmc_u32_t *ring_mpmc;
-	uint32_t event_idx[num];
+	ring_mpmc_ptr_t *ring_mpmc;
 
 	queue = qentry_from_handle(handle);
 	ring_mpmc = &queue->ring_mpmc;
 
-	num_deq = ring_mpmc_u32_deq_multi(ring_mpmc, queue->ring_data,
-					  queue->ring_mask, event_idx, num);
+	num_deq = ring_mpmc_ptr_deq_multi(ring_mpmc, queue->ring_data_ptr,
+					  queue->ring_mask, (const void **)event_hdr, num);
 
 	if (num_deq == 0)
 		return 0;
-
-	event_index_to_hdr(event_hdr, event_idx, num_deq);
 
 	return num_deq;
 }
@@ -793,7 +787,7 @@ static void queue_print(odp_queue_t handle)
 	} else {
 		_ODP_PRINT("  implementation  ring_mpmc\n");
 		_ODP_PRINT("  length          %" PRIu32 "/%" PRIu32 "\n",
-			   ring_mpmc_u32_len(&queue->ring_mpmc), queue->ring_mask + 1);
+			   ring_mpmc_ptr_len(&queue->ring_mpmc), queue->ring_mask + 1);
 	}
 	_ODP_PRINT("\n");
 
@@ -859,7 +853,7 @@ static void queue_print_all(void)
 			if (_odp_sched_id == _ODP_SCHED_ID_BASIC)
 				spr = _odp_sched_basic_get_spread(index);
 		} else {
-			len     = ring_mpmc_u32_len(&queue->ring_mpmc);
+			len     = ring_mpmc_ptr_len(&queue->ring_mpmc);
 			max_len = queue->ring_mask + 1;
 		}
 
@@ -1108,15 +1102,15 @@ static int queue_init(queue_entry_t *queue, const char *name,
 			queue->dequeue_multi      = plain_queue_deq_multi;
 			queue->orig_dequeue_multi = plain_queue_deq_multi;
 
-			queue->ring_data = &_odp_queue_glb->ring_data[offset];
+			queue->ring_data_ptr = (const void **)&_odp_queue_glb->ring_data[offset];
 			queue->ring_mask = queue_size - 1;
-			ring_mpmc_u32_init(&queue->ring_mpmc);
+			ring_mpmc_ptr_init(&queue->ring_mpmc);
 
 		} else {
 			queue->enqueue            = sched_queue_enq;
 			queue->enqueue_multi      = sched_queue_enq_multi;
 
-			queue->ring_data = &_odp_queue_glb->ring_data[offset];
+			queue->ring_data = (uint32_t *)&_odp_queue_glb->ring_data[offset];
 			queue->ring_mask = queue_size - 1;
 			ring_st_u32_init(&queue->ring_st);
 		}

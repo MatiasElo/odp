@@ -22,7 +22,7 @@ extern "C" {
 #include <odp/api/ticketlock.h>
 #include <odp_config_internal.h>
 #include <odp_macros_internal.h>
-#include <odp_ring_mpmc_u32_internal.h>
+#include <odp_ring_mpmc_ptr_internal.h>
 #include <odp_ring_st_u32_internal.h>
 #include <odp_ring_spsc_u32_internal.h>
 #include <odp_queue_lf.h>
@@ -39,14 +39,17 @@ typedef struct ODP_ALIGNED_CACHE queue_entry_s {
 	queue_deq_fn_t       dequeue;
 	queue_enq_multi_fn_t enqueue_multi;
 	queue_deq_multi_fn_t dequeue_multi;
-	uint32_t             *ring_data;
+	union {
+		uint32_t             *ring_data;
+		const void          **ring_data_ptr;
+	};
 	uint32_t             ring_mask;
 	uint32_t             index;
 	odp_queue_t          handle;
 	odp_queue_type_t     type;
 
 	/* MPMC ring (2 cache lines). */
-	ring_mpmc_u32_t      ring_mpmc;
+	ring_mpmc_ptr_t      ring_mpmc;
 
 	odp_ticketlock_t     lock;
 	union {
@@ -68,7 +71,7 @@ typedef struct ODP_ALIGNED_CACHE queue_entry_s {
 
 typedef struct queue_global_t {
 	queue_entry_t   queue[CONFIG_MAX_QUEUES];
-	uint32_t        *ring_data;
+	uintptr_t      *ring_data;
 	uint32_t        queue_lf_num;
 	uint32_t        queue_lf_size;
 	queue_lf_func_t queue_lf_func;

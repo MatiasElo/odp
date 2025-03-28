@@ -128,7 +128,7 @@ void _odp_queue_spsc_init(queue_entry_t *queue, uint32_t queue_size)
 
 	offset = queue->index * (uint64_t)_odp_queue_glb->config.max_queue_size;
 
-	queue->ring_data = &_odp_queue_glb->ring_data[offset];
+	queue->ring_data = (uint32_t *)&_odp_queue_glb->ring_data[offset];
 	queue->ring_mask = queue_size - 1;
 	ring_spsc_u32_init(&queue->ring_spsc);
 }
