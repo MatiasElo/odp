@@ -23,8 +23,8 @@ extern "C" {
 #include <odp_config_internal.h>
 #include <odp_macros_internal.h>
 #include <odp_ring_mpmc_ptr_internal.h>
-#include <odp_ring_st_u32_internal.h>
-#include <odp_ring_spsc_u32_internal.h>
+#include <odp_ring_st_ptr_internal.h>
+#include <odp_ring_spsc_ptr_internal.h>
 #include <odp_queue_lf.h>
 
 #define QUEUE_STATUS_FREE         0
@@ -39,10 +39,7 @@ typedef struct ODP_ALIGNED_CACHE queue_entry_s {
 	queue_deq_fn_t       dequeue;
 	queue_enq_multi_fn_t enqueue_multi;
 	queue_deq_multi_fn_t dequeue_multi;
-	union {
-		uint32_t             *ring_data;
-		const void          **ring_data_ptr;
-	};
+	const void         **ring_data;
 	uint32_t             ring_mask;
 	uint32_t             index;
 	odp_queue_t          handle;
@@ -53,8 +50,8 @@ typedef struct ODP_ALIGNED_CACHE queue_entry_s {
 
 	odp_ticketlock_t     lock;
 	union {
-		ring_st_u32_t ring_st;
-		ring_spsc_u32_t ring_spsc;
+		ring_st_ptr_t ring_st;
+		ring_spsc_ptr_t ring_spsc;
 	};
 
 	odp_atomic_u64_t     num_timers;
@@ -71,7 +68,7 @@ typedef struct ODP_ALIGNED_CACHE queue_entry_s {
 
 typedef struct queue_global_t {
 	queue_entry_t   queue[CONFIG_MAX_QUEUES];
-	uintptr_t      *ring_data;
+	const void    **ring_data;
 	uint32_t        queue_lf_num;
 	uint32_t        queue_lf_size;
 	queue_lf_func_t queue_lf_func;

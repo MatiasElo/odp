@@ -35,21 +35,18 @@ static inline int spsc_enq_multi(odp_queue_t handle,
 				 _odp_event_hdr_t *event_hdr[], int num)
 {
 	queue_entry_t *queue;
-	ring_spsc_u32_t *ring_spsc;
-	uint32_t buf_idx[num];
+	ring_spsc_ptr_t *ring_spsc;
 
 	queue = qentry_from_handle(handle);
 	ring_spsc = &queue->ring_spsc;
-
-	event_index_from_hdr(buf_idx, event_hdr, num);
 
 	if (odp_unlikely(queue->status < QUEUE_STATUS_READY)) {
 		_ODP_ERR("Bad queue status\n");
 		return -1;
 	}
 
-	return ring_spsc_u32_enq_multi(ring_spsc, queue->ring_data,
-				       queue->ring_mask, buf_idx, num);
+	return ring_spsc_ptr_enq_multi(ring_spsc, queue->ring_data,
+				       queue->ring_mask, (const void **)event_hdr, num);
 }
 
 static inline int spsc_deq_multi(odp_queue_t handle,
@@ -57,8 +54,7 @@ static inline int spsc_deq_multi(odp_queue_t handle,
 {
 	queue_entry_t *queue;
 	int num_deq;
-	ring_spsc_u32_t *ring_spsc;
-	uint32_t buf_idx[num];
+	ring_spsc_ptr_t *ring_spsc;
 
 	queue = qentry_from_handle(handle);
 	ring_spsc = &queue->ring_spsc;
@@ -68,13 +64,11 @@ static inline int spsc_deq_multi(odp_queue_t handle,
 		return -1;
 	}
 
-	num_deq = ring_spsc_u32_deq_multi(ring_spsc, queue->ring_data,
-					  queue->ring_mask, buf_idx, num);
+	num_deq = ring_spsc_ptr_deq_multi(ring_spsc, queue->ring_data,
+					  queue->ring_mask, (const void **)event_hdr, num);
 
 	if (num_deq == 0)
 		return 0;
-
-	event_index_to_hdr(event_hdr, buf_idx, num_deq);
 
 	return num_deq;
 }
@@ -128,7 +122,7 @@ void _odp_queue_spsc_init(queue_entry_t *queue, uint32_t queue_size)
 
 	offset = queue->index * (uint64_t)_odp_queue_glb->config.max_queue_size;
 
-	queue->ring_data = (uint32_t *)&_odp_queue_glb->ring_data[offset];
+	queue->ring_data = &_odp_queue_glb->ring_data[offset];
 	queue->ring_mask = queue_size - 1;
-	ring_spsc_u32_init(&queue->ring_spsc);
+	ring_spsc_ptr_init(&queue->ring_spsc);
 }
