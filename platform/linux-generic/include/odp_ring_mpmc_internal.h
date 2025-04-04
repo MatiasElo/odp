@@ -64,11 +64,17 @@ extern "C" {
  */
 
 struct ring_mpmc_common {
+	uint8_t cache_guard0[ODP_CACHE_LINE_SIZE] ODP_ALIGNED_CACHE;
+
 	odp_atomic_u32_t r_head ODP_ALIGNED_CACHE;
 	odp_atomic_u32_t r_tail;
 
+	uint8_t cache_guard1[ODP_CACHE_LINE_SIZE] ODP_ALIGNED_CACHE;
+
 	odp_atomic_u32_t w_head ODP_ALIGNED_CACHE;
 	odp_atomic_u32_t w_tail;
+
+	uint8_t cache_guard2[ODP_CACHE_LINE_SIZE] ODP_ALIGNED_CACHE;
 };
 
 typedef struct ODP_ALIGNED_CACHE {

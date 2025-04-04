@@ -25,9 +25,12 @@ extern "C" {
  * Enqueue and dequeue operations can be done concurrently.
  */
 typedef struct {
+	uint8_t cache_guard0[ODP_CACHE_LINE_SIZE] ODP_ALIGNED_CACHE;
+
 	odp_atomic_u32_t head;
 	odp_atomic_u32_t tail;
 
+	uint8_t cache_guard1[ODP_CACHE_LINE_SIZE] ODP_ALIGNED_CACHE;
 } ring_spsc_t;
 
 /* Initialize ring. Ring size must be a power of two. */

@@ -15,8 +15,12 @@ extern "C" {
 /* Basic ring for single thread usage. Operations must be synchronized by using
  * locks (or other means), when multiple threads use the same ring. */
 typedef struct {
+	uint8_t cache_guard0[ODP_CACHE_LINE_SIZE] ODP_ALIGNED_CACHE;
+
 	uint32_t head;
 	uint32_t tail;
+
+	uint8_t cache_guard1[ODP_CACHE_LINE_SIZE] ODP_ALIGNED_CACHE;
 } ring_st_t;
 
 /* Initialize ring. Ring size must be a power of two. */
