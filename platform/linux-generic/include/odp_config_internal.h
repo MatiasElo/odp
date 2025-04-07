@@ -206,6 +206,9 @@ extern "C" {
 /* Maximum number of outputs for a ML model. */
 #define CONFIG_ML_MAX_OUTPUTS 4
 
+/* Number of empty cache lines added by _ODP_CACHE_GUARD macro */
+#define CONFIG_CACHE_GUARD_LINES 1
+
 #ifdef __cplusplus
 }
 #endif
