@@ -5,14 +5,17 @@
 #ifndef ODP_RING_SPSC_INTERNAL_H_
 #define ODP_RING_SPSC_INTERNAL_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <odp/api/atomic.h>
+
+#include <odp/api/plat/atomic_inlines.h>
+
+#include <odp_macros_internal.h>
 
 #include <stdint.h>
 
-#include <odp/api/atomic.h>
-#include <odp/api/plat/atomic_inlines.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Lock-free ring for single-producer / single-consumer usage.
  *
@@ -25,9 +28,12 @@ extern "C" {
  * Enqueue and dequeue operations can be done concurrently.
  */
 typedef struct {
+	_ODP_CACHE_GUARD;
+
 	odp_atomic_u32_t head;
 	odp_atomic_u32_t tail;
 
+	_ODP_CACHE_GUARD;
 } ring_spsc_t;
 
 /* Initialize ring. Ring size must be a power of two. */

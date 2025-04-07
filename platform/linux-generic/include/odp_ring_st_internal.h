@@ -5,18 +5,24 @@
 #ifndef ODP_RING_ST_INTERNAL_H_
 #define ODP_RING_ST_INTERNAL_H_
 
+#include <odp/api/align.h>
+#include <odp/api/hints.h>
+
+#include <odp_macros_internal.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <odp/api/align.h>
-#include <odp/api/hints.h>
-
 /* Basic ring for single thread usage. Operations must be synchronized by using
  * locks (or other means), when multiple threads use the same ring. */
 typedef struct {
+	_ODP_CACHE_GUARD;
+
 	uint32_t head;
 	uint32_t tail;
+
+	_ODP_CACHE_GUARD;
 } ring_st_t;
 
 /* Initialize ring. Ring size must be a power of two. */

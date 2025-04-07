@@ -6,10 +6,6 @@
 #ifndef ODP_RING_MPMC_INTERNAL_H_
 #define ODP_RING_MPMC_INTERNAL_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <odp/api/align.h>
 #include <odp/api/atomic.h>
 #include <odp/api/cpu.h>
@@ -18,7 +14,12 @@ extern "C" {
 #include <odp/api/plat/atomic_inlines.h>
 #include <odp/api/plat/cpu_inlines.h>
 
+#include <odp_macros_internal.h>
 #include <odp_ring_common.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Ring of uint32_t/uint64_t data
  *
@@ -64,11 +65,17 @@ extern "C" {
  */
 
 struct ring_mpmc_common {
+	_ODP_CACHE_GUARD;
+
 	odp_atomic_u32_t r_head ODP_ALIGNED_CACHE;
 	odp_atomic_u32_t r_tail;
 
+	_ODP_CACHE_GUARD;
+
 	odp_atomic_u32_t w_head ODP_ALIGNED_CACHE;
 	odp_atomic_u32_t w_tail;
+
+	_ODP_CACHE_GUARD;
 };
 
 typedef struct ODP_ALIGNED_CACHE {
