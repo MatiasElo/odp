@@ -12,13 +12,15 @@
 #ifndef ODP_MACROS_INTERNAL_H_
 #define ODP_MACROS_INTERNAL_H_
 
+#include <odp/api/align.h>
+
+#include <odp_config_internal.h>
+
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <odp/api/align.h>
-
-#include <stdint.h>
 
 #define _ODP_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -93,6 +95,16 @@ __extension__ ({			\
  * Check if value is a power of two
  */
 #define _ODP_CHECK_IS_POWER2(x) ((((x) - 1) & (x)) == 0)
+
+#define __ODP_CACHE_GUARD_2(cntr) \
+	uint8_t _cg_ ## cntr[CONFIG_CACHE_GUARD_LINES * ODP_CACHE_LINE_SIZE] ODP_ALIGNED_CACHE
+#define __ODP_CACHE_GUARD_1(cntr) __ODP_CACHE_GUARD_2(cntr)
+
+/*
+ * Macro to add empty cache lines to structs to prevent false sharing like
+ * effects from prefetchers.
+ */
+#define _ODP_CACHE_GUARD __ODP_CACHE_GUARD_1(__COUNTER__)
 
 #ifdef __cplusplus
 }
