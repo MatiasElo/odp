@@ -10,6 +10,8 @@
 
 #include <odp/api/plat/atomic_inlines.h>
 
+#include <odp_macros_internal.h>
+
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -29,9 +31,12 @@ extern "C" {
  */
 
 struct ring_spsc_common {
+	_ODP_CACHE_GUARD;
+
 	odp_atomic_u32_t head;
 	odp_atomic_u32_t tail;
 
+	_ODP_CACHE_GUARD;
 };
 
 typedef struct ODP_ALIGNED_CACHE {

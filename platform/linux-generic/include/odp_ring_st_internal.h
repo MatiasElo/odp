@@ -9,6 +9,7 @@
 #include <odp/api/align.h>
 #include <odp/api/hints.h>
 
+#include <odp_macros_internal.h>
 #include <odp_ring_common.h>
 
 #include <stdint.h>
@@ -24,8 +25,12 @@ extern "C" {
  * locks (or other means), when multiple threads use the same ring. */
 
 struct ring_st_common {
+	_ODP_CACHE_GUARD;
+
 	uint32_t head;
 	uint32_t tail;
+
+	_ODP_CACHE_GUARD;
 };
 
 typedef struct ODP_ALIGNED_CACHE {
