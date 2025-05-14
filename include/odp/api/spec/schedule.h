@@ -84,6 +84,9 @@ uint64_t odp_schedule_wait_time(uint64_t ns);
  */
 odp_event_t odp_schedule(odp_queue_t *from, uint64_t wait);
 
+/* Run centralized scheduler */
+int odpx_schedule_run(void *ptr);
+
 /**
  * Schedule multiple events
  *

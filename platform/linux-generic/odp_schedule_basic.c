@@ -236,6 +236,13 @@ typedef struct ODP_ALIGNED_CACHE {
 
 } order_context_t;
 
+typedef struct sched_thread_s {
+		odp_atomic_u32_t request;
+		odp_event_t *out_ev;
+		odp_queue_t *out_queue;
+		int ret;
+} sched_thread_t;
+
 typedef struct {
 	struct {
 		uint8_t burst_default[NUM_SCHED_SYNC][NUM_PRIO];
@@ -303,6 +310,10 @@ typedef struct {
 	schedule_config_t config_if;
 	uint32_t max_queues;
 	odp_atomic_u32_t next_rand;
+
+	/* Centralized scheduler data */
+	odp_atomic_u32_t cent_run; /* Flag for terminating scheduler thread */
+	sched_thread_t   cent_thread[ODP_THREAD_COUNT_MAX];
 
 } sched_global_t;
 
@@ -689,6 +700,11 @@ static int schedule_init_global(void)
 
 	odp_thrmask_setall(&sched->mask_all);
 
+	/* Centralized scheduler */
+	for (i = 0; i < ODP_THREAD_COUNT_MAX; i++)
+		odp_atomic_init_u32(&sched->cent_thread[i].request, 0);
+	odp_atomic_init_u32(&sched->cent_run, 1);
+
 	_ODP_DBG("done\n");
 
 	return 0;
@@ -700,6 +716,8 @@ static int schedule_term_global(void)
 	int rc = 0;
 	int i, j, grp;
 	uint32_t ring_mask = sched->ring_mask;
+
+	odp_atomic_store_u32(&sched->cent_run, 0);
 
 	for (grp = 0; grp < NUM_SCHED_GRPS; grp++) {
 		for (i = 0; i < NUM_PRIO; i++) {
@@ -1689,6 +1707,46 @@ static inline int schedule_loop(odp_queue_t *out_queue, uint64_t wait,
 	return ret;
 }
 
+static inline int schedule_loop_cent(odp_queue_t *out_queue, uint64_t wait ODP_UNUSED,
+				     odp_event_t out_ev[], uint32_t max_num)
+{
+	sched_thread_t *thread = &sched->cent_thread[sched_local.thr];
+
+	thread->out_queue = out_queue;
+	thread->out_ev = out_ev;
+
+	odp_atomic_store_u32(&thread->request, max_num);
+
+	while (odp_atomic_load_acq_u32(&thread->request))
+		odp_cpu_pause();
+
+	return thread->ret;
+}
+
+static int schedule_run_cent(void)
+{
+	printf("*** Thread %d running centralized scheduler\n", odp_thread_id());
+
+	while (odp_atomic_load_u32(&sched->cent_run)) {
+		for (int i = 0; i < ODP_THREAD_COUNT_MAX; i++) {
+			sched_thread_t *thread = &sched->cent_thread[i];
+			uint32_t max_num = odp_atomic_load_acq_u32(&thread->request);
+
+			if (max_num == 0)
+				continue;
+
+			thread->ret = schedule_loop(thread->out_queue, ODP_SCHED_NO_WAIT,
+						    thread->out_ev, max_num);
+
+			odp_atomic_store_rel_u32(&thread->request, 0);
+		}
+	};
+
+	printf("*** Thread %d centralized scheduler exit\n", odp_thread_id());
+
+	return 0;
+}
+
 static inline int schedule_loop_sleep(odp_queue_t *out_queue, uint64_t wait,
 				      odp_event_t out_ev[], uint32_t max_num)
 {
@@ -1746,21 +1804,21 @@ static odp_event_t schedule(odp_queue_t *out_queue, uint64_t wait)
 
 	ev = ODP_EVENT_INVALID;
 
-	schedule_loop(out_queue, wait, &ev, 1);
+	schedule_loop_cent(out_queue, wait, &ev, 1);
 
 	return ev;
 }
 
-static odp_event_t schedule_sleep(odp_queue_t *out_queue, uint64_t wait)
+static odp_event_t schedule_sleep(odp_queue_t *out_queue, uint64_t wait ODP_UNUSED)
 {
 	odp_event_t ev;
 
 	ev = ODP_EVENT_INVALID;
 
-	if (wait == ODP_SCHED_NO_WAIT)
-		schedule_loop(out_queue, wait, &ev, 1);
-	else
-		schedule_loop_sleep(out_queue, wait, &ev, 1);
+	schedule_loop_cent(out_queue, wait, &ev, 1);
+
+	// TODO: implement sleep
+	//schedule_loop_sleep(out_queue, wait, &ev, 1);
 
 	return ev;
 }
@@ -1768,16 +1826,16 @@ static odp_event_t schedule_sleep(odp_queue_t *out_queue, uint64_t wait)
 static int schedule_multi(odp_queue_t *out_queue, uint64_t wait,
 			  odp_event_t events[], int num)
 {
-	return schedule_loop(out_queue, wait, events, num);
+	return schedule_loop_cent(out_queue, wait, events, num);
 }
 
-static int schedule_multi_sleep(odp_queue_t *out_queue, uint64_t wait,
+static int schedule_multi_sleep(odp_queue_t *out_queue, uint64_t wait ODP_UNUSED,
 				odp_event_t events[], int num)
 {
-	if (wait == ODP_SCHED_NO_WAIT)
-		return schedule_loop(out_queue, wait, events, num);
+	return schedule_loop_cent(out_queue, wait, events, num);
 
-	return schedule_loop_sleep(out_queue, wait, events, num);
+	// TODO: implement sleep
+	//return schedule_loop_sleep(out_queue, wait, events, num);
 }
 
 static int schedule_multi_no_wait(odp_queue_t *out_queue, odp_event_t events[],
@@ -2376,6 +2434,7 @@ const _odp_schedule_api_fn_t _odp_schedule_basic_api = {
 	.schedule_multi           = schedule_multi,
 	.schedule_multi_wait      = schedule_multi_wait,
 	.schedule_multi_no_wait   = schedule_multi_no_wait,
+	.schedule_run             = schedule_run_cent,
 	.schedule_pause           = schedule_pause,
 	.schedule_resume          = schedule_resume,
 	.schedule_release_atomic  = schedule_release_atomic,

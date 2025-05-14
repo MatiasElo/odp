@@ -70,6 +70,10 @@ int odp_schedule_config(const odp_schedule_config_t *config)
 	return ret;
 }
 
+int odpx_schedule_run(void *ptr ODP_UNUSED) {
+	return _odp_sched_api->schedule_run();
+}
+
 int odp_schedule_min_prio(void)
 {
 	return _odp_sched_api->schedule_min_prio();

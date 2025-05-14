@@ -28,6 +28,7 @@ typedef struct {
 	int (*schedule_multi)(odp_queue_t *from, uint64_t wait, odp_event_t events[], int num);
 	int (*schedule_multi_wait)(odp_queue_t *from, odp_event_t events[], int num);
 	int (*schedule_multi_no_wait)(odp_queue_t *from, odp_event_t events[], int num);
+	int (*schedule_run)(void);
 	void (*schedule_pause)(void);
 	void (*schedule_resume)(void);
 	void (*schedule_release_atomic)(void);
