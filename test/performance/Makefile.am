@@ -3,6 +3,7 @@ include $(top_srcdir)/test/Makefile.inc
 TESTS_ENVIRONMENT += TEST_DIR=${builddir}
 
 EXECUTABLES = odp_atomic_perf \
+	      odp_atomic_stress \
 	      odp_bench_buffer \
 	      odp_bench_misc \
 	      odp_bench_packet \
@@ -75,6 +76,7 @@ endif
 bin_PROGRAMS = $(EXECUTABLES) $(COMPILE_ONLY)
 
 odp_atomic_perf_SOURCES = odp_atomic_perf.c
+odp_atomic_stress_SOURCES = odp_atomic_stress.c
 odp_bench_buffer_SOURCES = odp_bench_buffer.c
 odp_bench_misc_SOURCES = odp_bench_misc.c
 odp_bench_packet_SOURCES = odp_bench_packet.c
