@@ -236,11 +236,11 @@ typedef struct odp_pool_capability_t {
 		/** Maximum number of packet pools */
 		uint32_t max_pools;
 
-		/** Maximum packet data length in bytes
+		/** Maximum length for allocated packets in bytes
 		 *
-		 * This defines the maximum packet data length that can be
-		 * stored into a packet. Attempts to allocate or extend packets
-		 * to sizes larger than this limit will fail.
+		 * The maximum length for packets that can be allocated from a
+		 * pool configured with minimum headroom. Packet length may be
+		 * extended after allocation by utilizing head- or tailroom.
 		 *
 		 * The value of zero means that limited only by the available
 		 * memory size for the pool. */
