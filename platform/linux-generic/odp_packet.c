@@ -680,7 +680,7 @@ odp_packet_t odp_packet_alloc(odp_pool_t pool_hdl, uint32_t len)
 
 	_ODP_ASSERT(pool->type == ODP_POOL_PACKET);
 
-	if (odp_unlikely(len > pool->max_len || len == 0))
+	if (odp_unlikely(len > pool->alloc_max_len || len == 0))
 		return ODP_PACKET_INVALID;
 
 	num_seg = num_segments(len, pool->seg_len);
@@ -700,7 +700,7 @@ int odp_packet_alloc_multi(odp_pool_t pool_hdl, uint32_t len,
 
 	_ODP_ASSERT(pool->type == ODP_POOL_PACKET);
 
-	if (odp_unlikely(len > pool->max_len || len == 0))
+	if (odp_unlikely(len > pool->alloc_max_len || len == 0))
 		return -1;
 
 	num_seg = num_segments(len, pool->seg_len);

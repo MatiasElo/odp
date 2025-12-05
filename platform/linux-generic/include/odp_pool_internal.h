@@ -72,11 +72,12 @@ typedef struct pool_t {
 	uint32_t         tailroom;
 	uint32_t         seg_len;
 	uint32_t         max_seg_len;
-	uint32_t         max_len;
-	uint32_t         param_uarea_size;
+	uint32_t         max_len; /* Max packet length (includes head- and tailroom) */
+	uint32_t         alloc_max_len; /* Max packet length for alloc functions */
 
 	/* --- 64-byte cache line boundary --- */
 
+	uint32_t         param_uarea_size;
 	uint32_t         uarea_size;
 	uint32_t         block_size;
 	uint32_t         block_offset;

@@ -947,7 +947,8 @@ odp_pool_t _odp_pool_create(const char *name, const odp_pool_param_t *params,
 	pool->seg_len        = seg_len;
 	pool->trailer_size   = trailer_size;
 	pool->max_seg_len    = headroom + seg_len + tailroom;
-	pool->max_len        = max_len;
+	pool->alloc_max_len  = max_len;
+	pool->max_len        = headroom + max_len + tailroom;
 	pool->tailroom       = tailroom;
 	pool->block_size     = block_size;
 	pool->shm_size       = (num + num_extra) * (uint64_t)block_size;
@@ -2109,7 +2110,8 @@ odp_pool_t odp_pool_ext_create(const char *name, const odp_pool_ext_param_t *par
 	pool->seg_len        = buf_size - head_offset - headroom - pool->tailroom -
 				pool->trailer_size;
 	pool->max_seg_len    = headroom + pool->seg_len + pool->tailroom;
-	pool->max_len        = PKT_MAX_SEGS * pool->seg_len;
+	pool->max_len        = PKT_MAX_SEGS * pool->max_seg_len;
+	pool->alloc_max_len  = PKT_MAX_SEGS * pool->seg_len;
 	pool->ext_head_offset = head_offset;
 	pool->base_addr      = (uint8_t *)(uintptr_t)UINT64_MAX;
 	pool->max_addr       = 0;
