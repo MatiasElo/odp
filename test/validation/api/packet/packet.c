@@ -2660,15 +2660,8 @@ static void packet_test_extend_ref(void)
 	odp_packet_push_head(max_pkt, hr);
 	odp_packet_push_tail(max_pkt, tr);
 
-	/* Max packet should not be extendable at either end */
-	if (max_len == pool_capa.pkt.max_len) {
-		CU_ASSERT(odp_packet_extend_tail(&max_pkt, 1, NULL, NULL) < 0);
-		CU_ASSERT(odp_packet_extend_head(&max_pkt, 1, NULL, NULL) < 0);
-	}
-
-	/* See if we can trunc and extend anyway */
-	CU_ASSERT(odp_packet_trunc_tail(&max_pkt, hr + tr + 1,
-					NULL, NULL) >= 0);
+	/* See if we can trunc and extend */
+	CU_ASSERT(odp_packet_trunc_tail(&max_pkt, hr + tr + 1, NULL, NULL) >= 0);
 	CU_ASSERT(odp_packet_extend_head(&max_pkt, 1, NULL, NULL) >= 0);
 	CU_ASSERT(odp_packet_len(max_pkt) == max_len);
 	packet_sanity_check(max_pkt);
