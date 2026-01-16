@@ -418,6 +418,15 @@ typedef union odp_pktin_config_opt_t {
 		/** Check SCTP checksum on packet input */
 		uint64_t sctp_chksum   : 1;
 
+		/** Drop packets with an Ethernet error on packet input
+		 *
+		 * When dropping Ethernet frames with errors is not explicitly
+		 * supported in odp_pktio_capability_t, the default behavior is
+		 * device specific or can we guarantee that error frames are
+		 * dropped?
+		 */
+		uint64_t drop_eth_err : 1;
+
 		/** Drop packets with an IPv4 error on packet input */
 		uint64_t drop_ipv4_err : 1;
 
