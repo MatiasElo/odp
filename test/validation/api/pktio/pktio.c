@@ -107,7 +107,8 @@ typedef struct pktio_global_t {
 
 	struct {
 		const char *name;
-		odp_pktio_capability_t capa;
+		/** Direct pktin/pktout capability */
+		odp_pktio_capability_t capa_direct;
 		odp_pool_t pool;
 		odp_pool_t evv_pool;
 		odp_pool_t pktv_pool;
@@ -5805,6 +5806,8 @@ static int pktio_check_pktin_event_sched(void)
 
 static int pktio_suite_init(pkt_segmented_e pool_segmentation)
 {
+	odp_pktio_param_t pktio_param;
+
 	odp_atomic_init_u32(&global.ip_seq, 0);
 
 	for (int i = 0; i < MAX_NUM_IFACES; i++) {
@@ -5863,6 +5866,27 @@ static int pktio_suite_init(pkt_segmented_e pool_segmentation)
 		return -1;
 	}
 
+	/* Save pktio capabilities for later use */
+	odp_pktio_param_init(&pktio_param);
+	pktio_param.in_mode = ODP_PKTIN_MODE_DIRECT;
+	pktio_param.out_mode = ODP_PKTOUT_MODE_DIRECT;
+
+	for (int i = 0; i < global.num_ifaces; i++) {
+		odp_pktio_t pktio;
+
+		pktio = odp_pktio_open(global.iface[i].name, global.iface[i].pool, &pktio_param);
+		if (pktio == ODP_PKTIO_INVALID) {
+			ODPH_ERR("Failed to open interface %s\n", global.iface[i].name);
+			return -1;
+		}
+
+		if (odp_pktio_capability(pktio, &global.iface[i].capa_direct)) {
+			ODPH_ERR("Failed to read interface %s capabilities\n",
+				 global.iface[i].name);
+			return -1;
+		}
+		(void)odp_pktio_close(pktio);
+	}
 	return 0;
 }
 
