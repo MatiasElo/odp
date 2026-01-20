@@ -1783,12 +1783,13 @@ static int dpdk_init_capability(pktio_entry_t *pktio_entry,
 	capa->stats.pktio.counter.out_packets = 1;
 	capa->stats.pktio.counter.out_errors = 1;
 
+#if RTE_VERSION < RTE_VERSION_NUM(25, 11, 0, 0)
 	capa->stats.pktin_queue.counter.octets = 1;
 	capa->stats.pktin_queue.counter.packets = 1;
 	capa->stats.pktin_queue.counter.errors = 1;
-
 	capa->stats.pktout_queue.counter.octets = 1;
 	capa->stats.pktout_queue.counter.packets = 1;
+#endif
 
 	return 0;
 }
@@ -1989,6 +1990,7 @@ static int dpdk_setup_eth_tx(pktio_entry_t *pktio_entry,
 		}
 	}
 
+#if RTE_VERSION < RTE_VERSION_NUM(25, 11, 0, 0)
 	/* Set per queue statistics mappings. Not supported by all PMDs, so
 	 * ignore the return value. */
 	for (i = 0; i < pktio_entry->num_out_queue && i < RTE_ETHDEV_QUEUE_STAT_CNTRS; i++) {
@@ -1999,6 +2001,7 @@ static int dpdk_setup_eth_tx(pktio_entry_t *pktio_entry,
 		}
 	}
 	_ODP_DBG("Mapped %" PRIu32 "/%d TX counters\n", i, RTE_ETHDEV_QUEUE_STAT_CNTRS);
+#endif
 
 	return 0;
 }
@@ -2027,6 +2030,7 @@ static int dpdk_setup_eth_rx(const pktio_entry_t *pktio_entry,
 		}
 	}
 
+#if RTE_VERSION < RTE_VERSION_NUM(25, 11, 0, 0)
 	/* Set per queue statistics mappings. Not supported by all PMDs, so
 	 * ignore the return value. */
 	for (i = 0; i < pktio_entry->num_in_queue && i < RTE_ETHDEV_QUEUE_STAT_CNTRS; i++) {
@@ -2037,6 +2041,7 @@ static int dpdk_setup_eth_rx(const pktio_entry_t *pktio_entry,
 		}
 	}
 	_ODP_DBG("Mapped %" PRIu32 "/%d RX counters\n", i, RTE_ETHDEV_QUEUE_STAT_CNTRS);
+#endif
 
 	return 0;
 }
@@ -2495,6 +2500,7 @@ static int dpdk_extra_stat_counter(pktio_entry_t *pktio_entry, uint32_t id,
 	return 0;
 }
 
+#if RTE_VERSION < RTE_VERSION_NUM(25, 11, 0, 0)
 static int dpdk_pktin_stats(pktio_entry_t *pktio_entry, uint32_t index,
 			    odp_pktin_queue_stats_t *pktin_stats)
 {
@@ -2520,7 +2526,16 @@ static int dpdk_pktin_stats(pktio_entry_t *pktio_entry, uint32_t index,
 
 	return 0;
 }
+#else
+static int dpdk_pktin_stats(pktio_entry_t *pktio_entry ODP_UNUSED, uint32_t index ODP_UNUSED,
+			    odp_pktin_queue_stats_t *pktin_stats)
+{
+	memset(pktin_stats, 0, sizeof(*pktin_stats));
+	return 0;
+}
+#endif
 
+#if RTE_VERSION < RTE_VERSION_NUM(25, 11, 0, 0)
 static int dpdk_pktout_stats(pktio_entry_t *pktio_entry, uint32_t index,
 			     odp_pktout_queue_stats_t *pktout_stats)
 {
@@ -2545,6 +2560,14 @@ static int dpdk_pktout_stats(pktio_entry_t *pktio_entry, uint32_t index,
 
 	return 0;
 }
+#else
+static int dpdk_pktout_stats(pktio_entry_t *pktio_entry ODP_UNUSED, uint32_t index ODP_UNUSED,
+			     odp_pktout_queue_stats_t *pktout_stats)
+{
+	memset(pktout_stats, 0, sizeof(*pktout_stats));
+	return 0;
+}
+#endif
 
 const pktio_if_ops_t _odp_dpdk_pktio_ops = {
 	.name = "dpdk",
