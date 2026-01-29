@@ -809,41 +809,58 @@ static int traffic_generator(uint32_t pkts_to_send)
 	return 0;
 }
 
-static int process_cmd_line_options(uint32_t argc, char *argv[])
+static void usage(void)
 {
-	uint32_t arg_idx;
-	char    *arg;
+	printf("\nUsage: odp_traffic_mgmt [options]\n"
+	       "\n"
+	       "OPTIONS:\n"
+	       "  -n, --num <num>         Number of test packets.\n"
+	       "  -q, --quiet             Don't print TM statistics.\n"
+	       "  -h, --help              Display help and exit.\n"
+	       "\n");
+}
 
-	arg_idx = 1;
-	while (arg_idx < argc) {
-		arg = argv[arg_idx++];
-		if (!arg) {
-			return -1;
-		} else if (arg[0] == '-') {
-			switch (arg[1]) {
-			case 'n':
-				if (argc <= arg_idx)
-					return -1;
-				g_num_pkts_to_send =
-					atoi(argv[arg_idx++]);
-				break;
+static void parse_args(uint32_t argc, char *argv[])
+{
+	int opt, val;
+	static const struct option longopts[] = {
+		{"num", required_argument, NULL, 'n'},
+		{"quiet", required_argument, NULL, 'q'},
+		{"help", no_argument, NULL, 'h'},
+		{NULL, 0, NULL, 0}
+	};
+	static const char *shortopts =  "n:qh";
 
-			case 'q':
-				g_print_tm_stats = FALSE;
-				break;
+	while (1) {
+		opt = getopt_long(argc, argv, shortopts, longopts, NULL);
 
-			default:
-				printf("Unrecognized cmd line option '%s'\n",
-				       arg);
-				return -1;
+		if (opt == -1)
+			break;	/* No more options */
+
+		switch (opt) {
+		case 'n':
+			val = atoi(optarg);
+			if (val < 1) {
+				ODPH_ERR("Invalid number of test packets: %d\n", val);
+				exit(EXIT_FAILURE);
 			}
-		} else {
-			/* Currently all cmd line options are '-' flag based. */
-			return -1;
+			g_num_pkts_to_send = val;
+			break;
+		case 'q':
+			g_print_tm_stats = FALSE;
+			break;
+		case 'h':
+			usage();
+			exit(EXIT_SUCCESS);
+			break;
+		default:
+			usage();
+			exit(EXIT_FAILURE);
+			break;
 		}
 	}
 
-	return 0;
+	optind = 1; /* Reset 'extern optind' from the getopt lib */
 }
 
 static void signal_handler(int signal)
@@ -949,8 +966,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (process_cmd_line_options(argc, argv) < 0)
-		return -1;
+	parse_args(argc, argv);
 
 	rc = create_and_config_tm();
 	if (rc != 0)
@@ -976,7 +992,8 @@ int main(int argc, char *argv[])
 	printf("pkts_into_tm=%" PRIu32 " pkts_from_tm=%" PRIu32 "\n",
 	       pkts_into_tm, pkts_from_tm);
 
-	odp_tm_stats_print(odp_tm_test);
+	if (g_print_tm_stats)
+		odp_tm_stats_print(odp_tm_test);
 
 	/* Stop TM */
 	rc = odp_tm_stop(odp_tm_test);
