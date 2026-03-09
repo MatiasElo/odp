@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause
  * Copyright (c) 2014-2018 Linaro Limited
- * Copyright (c) 2019-2025 Nokia
+ * Copyright (c) 2019-2026 Nokia
  */
 
 #include <odp_api.h>
@@ -111,6 +111,7 @@ typedef struct {
 
 	odp_schedule_group_t pgt_groups[MAX_WORKERS];
 	odp_queue_t pgt_queues[MAX_WORKERS];
+	odp_schedule_capability_t sched_capa;
 
 } test_globals_t;
 
@@ -3059,6 +3060,7 @@ static void scheduler_fifo_init(odp_schedule_sync_t sync, int multi, uint32_t nu
 
 	queue = odp_queue_create("sched_fifo", &queue_param);
 	CU_ASSERT_FATAL(queue != ODP_QUEUE_INVALID);
+	CU_ASSERT(odp_queue_len(queue) == 0);
 
 	odp_pool_param_init(&pool_param);
 	pool_param.type      = ODP_POOL_BUFFER;
@@ -3144,6 +3146,11 @@ static int scheduler_fifo_test(void *arg)
 				ret = 1;
 		}
 
+		if (globals->sched_capa.queue_stats.bit.len)
+			CU_ASSERT(odp_queue_len(queue) <= num_events);
+		else
+			CU_ASSERT(odp_queue_len(queue) == 0);
+
 		if (ret > 0)
 			globals->fifo.num_enq += ret;
 
@@ -3220,6 +3227,7 @@ static int scheduler_fifo_test(void *arg)
 		odp_buffer_free(buf);
 	}
 
+	CU_ASSERT(odp_queue_len(queue) == 0);
 	CU_ASSERT_FATAL(!odp_queue_destroy(queue));
 	CU_ASSERT_FATAL(!odp_pool_destroy(pool));
 
@@ -3783,7 +3791,6 @@ static int scheduler_test_global_init(void)
 	odp_pool_t pool;
 	odp_pool_param_t params;
 	uint64_t num_flows;
-	odp_schedule_capability_t sched_capa;
 	odp_schedule_config_t sched_config;
 
 	shm = odp_shm_reserve(GLOBALS_SHM_NAME,
@@ -3846,7 +3853,7 @@ static int scheduler_test_global_init(void)
 
 	globals->pool = pool;
 
-	if (odp_schedule_capability(&sched_capa)) {
+	if (odp_schedule_capability(&globals->sched_capa)) {
 		ODPH_ERR("odp_schedule_capability() failed\n");
 		return -1;
 	}
@@ -3855,10 +3862,10 @@ static int scheduler_test_global_init(void)
 	odp_schedule_config_init(&sched_config);
 
 	/* Enable flow aware scheduling */
-	if (sched_capa.max_flow_id > 0) {
+	if (globals->sched_capa.max_flow_id > 0) {
 		num_flows = MAX_FLOWS;
-		if ((MAX_FLOWS - 1) > sched_capa.max_flow_id)
-			num_flows = sched_capa.max_flow_id + 1;
+		if ((MAX_FLOWS - 1) > globals->sched_capa.max_flow_id)
+			num_flows = globals->sched_capa.max_flow_id + 1;
 
 		sched_config.max_flow_id = num_flows - 1;
 	}
