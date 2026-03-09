@@ -364,13 +364,18 @@ static void test_burst(odp_nonblocking_t nonblocking,
 	odp_buffer_t buf;
 	odp_event_t ev;
 	uint32_t *data;
+	odp_bool_t queue_len_supported;
 
-	if (nonblocking == ODP_NONBLOCKING_LF)
+	if (nonblocking == ODP_NONBLOCKING_LF) {
 		max_burst = capa->plain.lockfree.max_size;
-	else if (nonblocking == ODP_NONBLOCKING_WF)
+		queue_len_supported = capa->plain.lockfree.stats.bit.len;
+	} else if (nonblocking == ODP_NONBLOCKING_WF) {
 		max_burst = capa->plain.waitfree.max_size;
-	else
+		queue_len_supported = capa->plain.waitfree.stats.bit.len;
+	} else {
 		max_burst = capa->plain.max_size;
+		queue_len_supported = capa->plain.stats.bit.len;
+	}
 
 	if (max_burst == 0 || max_burst > MAX_NUM_EVENT)
 		max_burst = MAX_NUM_EVENT;
@@ -387,6 +392,7 @@ static void test_burst(odp_nonblocking_t nonblocking,
 
 	queue = odp_queue_create("burst test", &param);
 	CU_ASSERT_FATAL(queue != ODP_QUEUE_INVALID);
+	CU_ASSERT(odp_queue_len(queue) == 0);
 
 	CU_ASSERT(odp_queue_deq(queue) == ODP_EVENT_INVALID);
 
@@ -414,6 +420,11 @@ static void test_burst(odp_nonblocking_t nonblocking,
 			CU_ASSERT(odp_queue_enq(queue, ev) == 0);
 		}
 
+		if (queue_len_supported)
+			CU_ASSERT(odp_queue_len(queue) <= burst);
+		else
+			CU_ASSERT(odp_queue_len(queue) == 0);
+
 		for (i = 0; i < burst; i++) {
 			ev = dequeue_event(queue);
 			CU_ASSERT(ev != ODP_EVENT_INVALID);
@@ -426,6 +437,7 @@ static void test_burst(odp_nonblocking_t nonblocking,
 		}
 	}
 
+	CU_ASSERT(odp_queue_len(queue) == 0);
 	CU_ASSERT(odp_queue_destroy(queue) == 0);
 }
 
@@ -1442,12 +1454,14 @@ static void aggr_queue_test(const odp_event_aggr_capability_t *capa, odp_queue_t
 	aggr_queue = odp_queue_aggr(queue, 0);
 	CU_ASSERT_FATAL(aggr_queue != ODP_QUEUE_INVALID);
 	CU_ASSERT(odp_queue_type(aggr_queue) == ODP_QUEUE_TYPE_AGGR);
+	CU_ASSERT(odp_queue_len(aggr_queue) == 0);
 
 	for (uint32_t i = 0; i < num_events; i++) {
 		aggr_test_event_t *test_event;
 		const odp_bool_t use_aggr = i % 2;
 		odp_queue_t dst_queue = use_aggr ? aggr_queue : queue;
 		odp_buffer_t buf = odp_buffer_alloc(buf_pool);
+		uint32_t len;
 
 		CU_ASSERT_FATAL(buf != ODP_BUFFER_INVALID);
 
@@ -1460,6 +1474,12 @@ static void aggr_queue_test(const odp_event_aggr_capability_t *capa, odp_queue_t
 			seq_num++;
 
 		CU_ASSERT_FATAL(odp_queue_enq(dst_queue, odp_buffer_to_event(buf)) == 0);
+
+		len = odp_queue_len(aggr_queue);
+		if (capa->stats.bit.len)
+			CU_ASSERT(len <= num_events);
+		else
+			CU_ASSERT(len == 0);
 	}
 
 	odp_time_wait_ns(timeout);
@@ -1515,6 +1535,7 @@ static void aggr_queue_test(const odp_event_aggr_capability_t *capa, odp_queue_t
 	CU_ASSERT(num_from_queue + num_from_aggr <= num_events);
 
 	/* Assuming the queue can be destroyed regardless of possibly pending events */
+	CU_ASSERT(odp_queue_len(queue) < vector_size);
 	CU_ASSERT(odp_queue_destroy(queue) == 0);
 	CU_ASSERT(odp_pool_destroy(evv_pool) == 0);
 	CU_ASSERT(odp_pool_destroy(buf_pool) == 0);
