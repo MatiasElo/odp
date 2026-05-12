@@ -922,6 +922,32 @@ void *odp_packet_seg_data(odp_packet_t pkt, odp_packet_seg_t seg);
 uint32_t odp_packet_seg_data_len(odp_packet_t pkt, odp_packet_seg_t seg);
 
 /**
+ * Test if segment has multiple references
+ *
+ * Otherwise like odp_packet_has_ref(), but per packet segment.
+ *
+ * @param pkt  Packet handle
+ * @param seg  Segment handle
+ *
+ * @retval 0  This is the single reference to the segment
+ * @retval 1  Segment has multiple references
+ */
+int odp_packet_seg_has_ref(odp_packet_t pkt, odp_packet_seg_t seg);
+
+/**
+ * Test if a segment is a referencing segment
+ *
+ * Otherwise like odp_packet_is_referencing(), but per packet segment.
+ *
+ * @param pkt  Packet handle
+ * @param seg  Segment handle
+ *
+ * @retval 0  This segment is a normal segment, a referenced segment or a static segment reference
+ * @retval 1  Segment is a referencing segment
+ */
+int odp_packet_seg_is_referencing(odp_packet_t pkt, odp_packet_seg_t seg);
+
+/**
  * Concatenate two packets
  *
  * Concatenate all packet data from 'src' packet into tail of 'dst' packet.
@@ -1320,6 +1346,8 @@ odp_packet_t odp_packet_ref_pkt(odp_packet_t pkt, uint32_t offset,
  * function returns 1 for the original packet and all static references to
  * it as long as more than one such static packet reference exists.
  *
+ * Segment-level state can be observed with odp_packet_seg_has_ref().
+ *
  * See also odp_packet_is_referencing().
  *
  * @param pkt Packet handle
@@ -1334,6 +1362,9 @@ int odp_packet_has_ref(odp_packet_t pkt);
  *
  * Return 1 if the packet references another packet but is not a static
  * reference, 0 otherwise.
+ *
+ * Segment-level state can be observed with odp_packet_seg_is_referencing().
+ *
  * See odp_packet_has_ref(), odp_packet_ref(), odp_packet_ref_static()
  *
  * @param pkt Packet handle
