@@ -695,16 +695,23 @@ int odp_pktio_mac_addr_set(odp_pktio_t pktio, const void *mac_addr,
 int odp_pktio_default_cos_set(odp_pktio_t pktio, odp_cos_t default_cos);
 
 /**
- * Setup per-port error class-of-service
+ * Setup interface error class-of-service
  *
- * @param pktio      Ingress port pktio handle.
- * @param error_cos  class-of-service set to all packets arriving at this
- *                   ingress port that contain an error.
+ * Set CoS for packets arriving from this packet IO interface that contain
+ * errors detected during packet parsing, or remove the current error CoS by
+ * passing ODP_COS_INVALID as 'error_cos'. This function may be called multiple
+ * times on the same interface, and each successful call replaces the previous
+ * error CoS binding.
+ *
+ * When no error CoS is configured, it's implementation defined how packets with
+ * parsing errors are handled (they may be discarded similarly to classification
+ * failures).
+ *
+ * @param pktio      Packet IO handle
+ * @param error_cos  CoS handle or ODP_COS_INVALID
  *
  * @retval  0 on success
  * @retval <0 on failure
- *
- * @note Optional.
  */
 int odp_pktio_error_cos_set(odp_pktio_t pktio, odp_cos_t error_cos);
 
