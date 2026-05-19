@@ -201,7 +201,7 @@ jobs:
                '--without-openssl --without-pcap',
                '--with-crypto=armv8crypto',
                '--with-crypto=ipsecmb',
-               '--enable-wfe-locks']
+               '--with-target=neoverse-v1 --enable-wfe-locks']
     steps:
       - uses: OpenDataPlane/action-clean-up@main
       - uses: actions/checkout@v6
