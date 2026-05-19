@@ -16,14 +16,21 @@ AC_ARG_WITH([target],
 	    [ODP_TARGET=default
 	     with_target=default])
 
+time_freq_1ghz=no
+
 AS_CASE([$ODP_TARGET],
 	[default], [],
-	[neoverse-n2], [],
-	[neoverse-n3], [],
+	[neoverse-n2], [time_freq_1ghz=yes],
+	[neoverse-n3], [time_freq_1ghz=yes],
 	[neoverse-v1], [],
-	[neoverse-v2], [],
-	[neoverse-v3], [],
+	[neoverse-v2], [time_freq_1ghz=yes],
+	[neoverse-v3], [time_freq_1ghz=yes],
 	[AC_MSG_ERROR([unsupported --with-target value '$ODP_TARGET'. Supported values: ]_ODP_TARGET_LIST)]
 )
+
+if test "x$time_freq_1ghz" = "xyes"; then
+	AC_DEFINE([_ODP_TIME_FREQ_1GHZ], [1],
+		  [Define to 1 when target has 1 GHz time counter frequency])
+fi
 
 ])
