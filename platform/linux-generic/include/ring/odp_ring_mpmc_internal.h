@@ -294,13 +294,14 @@ static inline uint32_t _RING_MPMC_DEQ(_ring_xpxc_gen_t *ring,
 	 * and new r_head. */
 	do {
 		old_head = odp_atomic_load_acq_u32(&ring->r.r_head);
-		odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 		w_tail   = odp_atomic_load_acq_u32(&ring->r.w_tail);
 		num_data = w_tail - old_head;
 
 		/* Ring is empty */
 		if (num_data == 0)
 			return 0;
+
+		odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 
 		new_head = old_head + 1;
 
@@ -337,13 +338,14 @@ static inline uint32_t _RING_MPMC_DEQ_MULTI(_ring_xpxc_gen_t *ring,
 	 * and new r_head. */
 	do {
 		old_head = odp_atomic_load_acq_u32(&ring->r.r_head);
-		odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 		w_tail   = odp_atomic_load_acq_u32(&ring->r.w_tail);
 		num_data = w_tail - old_head;
 
 		/* Ring is empty */
 		if (num_data == 0)
 			return 0;
+
+		odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 
 		/* Try to take all available */
 		if (num > num_data)
@@ -381,13 +383,14 @@ static inline uint32_t _RING_MPSC_DEQ_MULTI(_ring_xpxc_gen_t *ring,
 
 	/* r_head value is always behind or equal to w_tail value */
 	old_head = odp_atomic_load_u32(&ring->r.r_head);
-	odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 	w_tail   = odp_atomic_load_acq_u32(&ring->r.w_tail);
 	num_data = w_tail - old_head;
 
 	/* Ring is empty */
 	if (num_data == 0)
 		return 0;
+
+	odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 
 	/* Try to take all available */
 	if (num > num_data)
@@ -426,13 +429,14 @@ static inline uint32_t _RING_MPMC_DEQ_BATCH(_ring_xpxc_gen_t *ring,
 	 * and new r_head. */
 	do {
 		old_head = odp_atomic_load_acq_u32(&ring->r.r_head);
-		odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 		w_tail   = odp_atomic_load_acq_u32(&ring->r.w_tail);
 		num_data = w_tail - old_head;
 
 		/* Not enough data available */
 		if (num_data < num)
 			return 0;
+
+		odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 
 		new_head = old_head + num;
 
@@ -466,13 +470,14 @@ static inline uint32_t _RING_MPSC_DEQ_BATCH(_ring_xpxc_gen_t *ring,
 
 	/* r_head value is always behind or equal to w_tail value */
 	old_head = odp_atomic_load_u32(&ring->r.r_head);
-	odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 	w_tail   = odp_atomic_load_acq_u32(&ring->r.w_tail);
 	num_data = w_tail - old_head;
 
 	/* Not enough data available */
 	if (num_data < num)
 		return 0;
+
+	odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
 
 	new_head = old_head + num;
 
