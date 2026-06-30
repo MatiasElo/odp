@@ -286,7 +286,7 @@ static inline uint32_t _RING_MPMC_DEQ(_ring_xpxc_gen_t *ring,
 				      uint32_t ring_mask,
 				      _ring_xpxc_data_t *data)
 {
-	uint32_t old_head, new_head, w_tail, num_data;
+	uint32_t old_head, new_head, w_tail;
 
 	/* Load acquires ensure that w_tail load happens after r_head load,
 	 * and thus r_head value is always behind or equal to w_tail value.
@@ -295,10 +295,9 @@ static inline uint32_t _RING_MPMC_DEQ(_ring_xpxc_gen_t *ring,
 	do {
 		old_head = odp_atomic_load_acq_u32(&ring->r.r_head);
 		w_tail   = odp_atomic_load_acq_u32(&ring->r.w_tail);
-		num_data = w_tail - old_head;
 
 		/* Ring is empty */
-		if (num_data == 0)
+		if (old_head == w_tail)
 			return 0;
 
 		odp_prefetch(&ring_data[(old_head + 1) & ring_mask]);
@@ -502,7 +501,7 @@ static inline uint32_t _RING_MPMC_ENQ(_ring_xpxc_gen_t *ring,
 				      uint32_t ring_mask,
 				      const _ring_xpxc_data_t data)
 {
-	uint32_t old_head, new_head, r_tail, num_free;
+	uint32_t old_head, new_head, r_tail;
 	uint32_t size = ring_mask + 1;
 
 	/* The CAS operation guarantees that w_head value is up to date. Load
@@ -517,10 +516,8 @@ static inline uint32_t _RING_MPMC_ENQ(_ring_xpxc_gen_t *ring,
 		old_head = odp_atomic_load_acq_u32(&ring->r.w_head);
 		r_tail   = odp_atomic_load_acq_u32(&ring->r.r_tail);
 
-		num_free = size - (old_head - r_tail);
-
 		/* Ring is full */
-		if (num_free == 0)
+		if ((old_head - r_tail) == size)
 			return 0;
 
 		new_head = old_head + 1;

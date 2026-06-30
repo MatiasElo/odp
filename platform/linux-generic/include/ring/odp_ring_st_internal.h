@@ -115,14 +115,12 @@ static inline uint32_t _RING_ST_DEQ(_ring_st_gen_t *ring,
 				    _ring_st_data_t *data)
 {
 	uint32_t head, tail;
-	uint32_t num;
 
 	head = ring->r.head;
 	tail = ring->r.tail;
-	num  = tail - head;
 
 	/* Empty */
-	if (num == 0)
+	if (head == tail)
 		return 0;
 
 	*data = ring_data[head & ring_mask];
@@ -202,15 +200,13 @@ static inline uint32_t _RING_ST_ENQ(_ring_st_gen_t *ring,
 				    const _ring_st_data_t data)
 {
 	uint32_t head, tail, size;
-	uint32_t num;
 
 	head = ring->r.head;
 	tail = ring->r.tail;
 	size = ring_mask + 1;
-	num  = size - (tail - head);
 
 	/* Full */
-	if (num == 0)
+	if ((tail - head) == size)
 		return 0;
 
 	ring_data[tail & ring_mask] = data;
