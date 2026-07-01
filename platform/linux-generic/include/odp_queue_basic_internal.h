@@ -54,7 +54,6 @@ typedef struct ODP_ALIGNED_CACHE queue_entry_s {
 	uintptr_t           *ring_data;
 	uint32_t             ring_mask;
 	uint32_t             index;
-	odp_queue_t          handle;
 	odp_queue_type_t     type;
 
 	/* MPMC ring (2 cache lines). */

@@ -54,6 +54,11 @@ static void event_aggr_queue_init(queue_entry_t *aggr_queue,
 queue_global_t *_odp_queue_glb;
 extern _odp_queue_inline_offset_t _odp_queue_inline_offset;
 
+static inline odp_queue_t queue_handle(const queue_entry_t *queue)
+{
+	return (odp_queue_t)(uintptr_t)queue;
+}
+
 static int queue_capa(odp_queue_capability_t *capa, int sched ODP_UNUSED)
 {
 	memset(capa, 0, sizeof(odp_queue_capability_t));
@@ -158,7 +163,6 @@ static int queue_init_global(void)
 
 		LOCK_INIT(queue);
 		queue->index  = i;
-		queue->handle = (odp_queue_t)queue;
 	}
 
 	for (i = 0; i < CONFIG_MAX_EVENT_AGGR; i++) {
@@ -166,7 +170,6 @@ static int queue_init_global(void)
 
 		LOCK_INIT(aggr_queue);
 		aggr_queue->index  = i;
-		aggr_queue->handle = (odp_queue_t)aggr_queue;
 		aggr_queue->type = ODP_QUEUE_TYPE_AGGR;
 	}
 
@@ -490,7 +493,7 @@ static odp_queue_t queue_create(const char *name,
 			else
 				queue->status = QUEUE_STATUS_READY;
 
-			handle = queue->handle;
+			handle = queue_handle(queue);
 			UNLOCK(queue);
 			break;
 		}
@@ -684,7 +687,7 @@ static odp_queue_t queue_lookup(const char *name)
 		if (strcmp(name, queue->name) == 0) {
 			/* found it */
 			UNLOCK(queue);
-			return queue->handle;
+			return queue_handle(queue);
 		}
 		UNLOCK(queue);
 	}
@@ -757,7 +760,7 @@ int _odp_event_aggr_enq(queue_entry_t *aggr_queue, _odp_event_hdr_t *event_hdr[]
 	/* Packet input may later drop a vector if the base queue is full, so enqueue events to the
 	 * base queue directly. */
 	if (odp_unlikely(base_queue->pktin.pktio != ODP_PKTIO_INVALID))
-		return base_queue->enqueue_multi(base_queue->handle, event_hdr, num);
+		return base_queue->enqueue_multi(queue_handle(base_queue), event_hdr, num);
 
 	odp_ticketlock_lock(&aggr->lock);
 
@@ -781,7 +784,7 @@ int _odp_event_aggr_enq(queue_entry_t *aggr_queue, _odp_event_hdr_t *event_hdr[]
 		odp_event_vector_size_set(evv, aggr->num_events);
 		odp_event_vector_type_set(evv, aggr->event_type);
 
-		if (odp_unlikely(base_queue->enqueue(base_queue->handle,
+		if (odp_unlikely(base_queue->enqueue(queue_handle(base_queue),
 						     (_odp_event_hdr_t *)(uintptr_t)evv) != 0)) {
 			aggr->num_events--;
 			odp_ticketlock_unlock(&aggr->lock);
@@ -842,7 +845,7 @@ static int event_aggr_enq_pending(event_aggr_t *aggr)
 	queue_entry_t *base_queue = qentry_from_handle(aggr->base_queue);
 
 	if (aggr->num_events == 1) {
-		if (odp_likely(base_queue->enqueue(base_queue->handle,
+		if (odp_likely(base_queue->enqueue(queue_handle(base_queue),
 						   _odp_event_hdr(aggr->event_tbl[0])) == 0)) {
 			aggr->num_events = 0;
 			return 1;
@@ -861,7 +864,7 @@ static int event_aggr_enq_pending(event_aggr_t *aggr)
 	odp_event_vector_size_set(evv, aggr->num_events);
 	odp_event_vector_type_set(evv, aggr->event_type);
 
-	if (odp_unlikely(base_queue->enqueue(base_queue->handle,
+	if (odp_unlikely(base_queue->enqueue(queue_handle(base_queue),
 					     (_odp_event_hdr_t *)(uintptr_t)evv)) != 0) {
 		odp_event_vector_free(evv);
 		return 0;
@@ -886,8 +889,8 @@ static int queue_api_enq_aggr(odp_queue_t handle, odp_event_t ev,
 	/* Packet input may later drop a vector if the base queue is full, so enqueue events to the
 	 * base queue directly. */
 	if (odp_unlikely(base_queue->pktin.pktio != ODP_PKTIO_INVALID))
-		return base_queue->enqueue(base_queue->handle, (_odp_event_hdr_t *)(uintptr_t)ev);
-
+		return base_queue->enqueue(queue_handle(base_queue),
+					   (_odp_event_hdr_t *)(uintptr_t)ev);
 	/* Cannot stash events as ordered_stash_release() ignores odp_aggr_enq_param_t */
 	_odp_sched_fn->ord_stash_release(handle);
 
@@ -1126,15 +1129,15 @@ static void event_aggr_print(queue_entry_t *aggr_queue)
 	int max_len = 512;
 	int n = max_len - 1;
 	char str[max_len];
-	uint16_t num_events = event_aggr_len(aggr_queue->handle);
+	uint16_t num_events = event_aggr_len(queue_handle(aggr_queue));
 
 	len += _odp_snprint(&str[len], n - len, "\nEvent aggregator info\n");
 	len += _odp_snprint(&str[len], n - len, "---------------------\n");
 	len += _odp_snprint(&str[len], n - len, "  handle          %p\n",
-			    (void *)aggr_queue->handle);
+			    (void *)queue_handle(aggr_queue));
 	len += _odp_snprint(&str[len], n - len, "  index           %" PRIu32 "\n",
 			    aggr_queue->index);
-	len += _odp_snprint(&str[len], n - len, "  base queue      %p\n", base_queue->handle);
+	len += _odp_snprint(&str[len], n - len, "  base queue      %p\n", queue_handle(base_queue));
 	len += _odp_snprint(&str[len], n - len, "  base queue name %s\n", base_queue->name);
 	len += _odp_snprint(&str[len], n - len, "  pool            %p\n", aggr->pool);
 	len += _odp_snprint(&str[len], n - len, "  event type      %" PRIu32 "\n",
@@ -1181,7 +1184,7 @@ static void queue_print(odp_queue_t handle)
 	}
 	_ODP_PRINT("\nQueue info\n");
 	_ODP_PRINT("----------\n");
-	_ODP_PRINT("  handle          %p\n", (void *)queue->handle);
+	_ODP_PRINT("  handle          %p\n", (void *)queue_handle(queue));
 	_ODP_PRINT("  index           %" PRIu32 "\n", queue_id);
 	_ODP_PRINT("  name            %s\n", queue->name);
 	_ODP_PRINT("  enq mode        %s\n",
@@ -1517,7 +1520,7 @@ static void event_aggr_queue_init(queue_entry_t *aggr_queue, const queue_entry_t
 
 	odp_ticketlock_init(&aggr->lock);
 	aggr->num_events = 0;
-	aggr->base_queue = base_queue->handle;
+	aggr->base_queue = queue_handle(base_queue);
 	aggr->pool = base_queue->param.aggr->pool;
 	aggr->event_type = base_queue->param.aggr->event_type;
 	aggr->max_size = base_queue->param.aggr->max_size;
