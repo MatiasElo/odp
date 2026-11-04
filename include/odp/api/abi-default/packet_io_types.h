@@ -24,18 +24,23 @@ typedef struct { char dummy; /**< @internal Dummy */ } _odp_abi_pktio_t;
 /** @internal Dummy type for strong typing */
 typedef struct { char dummy; /**< @internal Dummy */ } _odp_abi_lso_profile_t;
 
+/** @internal Dummy type for strong typing */
+typedef struct { char dummy; /**< @internal Dummy */ } _odp_abi_pktio_extmem_t;
+
 /** @addtogroup odp_packet_io
  *  @{
  */
 
 typedef _odp_abi_pktio_t *odp_pktio_t;
 typedef _odp_abi_lso_profile_t *odp_lso_profile_t;
+typedef _odp_abi_pktio_extmem_t *odp_pktio_extmem_t;
 
 typedef struct odp_pktin_queue_s odp_pktin_queue_t;
 typedef struct odp_pktout_queue_s odp_pktout_queue_t;
 
 #define ODP_PKTIO_INVALID ((odp_pktio_t)0)
 #define ODP_LSO_PROFILE_INVALID ((odp_lso_profile_t)0)
+#define ODP_PKTIO_EXTMEM_INVALID ((odp_pktio_extmem_t)0)
 
 #define ODP_PKTIO_MAX_INDEX 63
 

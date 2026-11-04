@@ -50,6 +50,11 @@ extern "C" {
  */
 
 /**
+ * @typedef odp_pktio_extmem_t
+ * Packet IO external memory area handle
+ */
+
+/**
  * @def ODP_PKTIO_INVALID
  * Invalid packet IO handle
  */
@@ -57,6 +62,11 @@ extern "C" {
 /**
  * @def ODP_LSO_PROFILE_INVALID
  * Invalid LSO profile handle
+ */
+
+/**
+ * @def ODP_PKTIO_EXTMEM_INVALID
+ * Invalid packet IO external memory area handle
  */
 
 /**
@@ -672,6 +682,22 @@ typedef struct odp_pktio_config_t {
 	 */
 	odp_bool_t enable_lso;
 
+	/** Enable packet output from external memory
+	 *
+	 *  Enables transmission of frames whose payload is located in application owned external
+	 *  memory areas. Use external memory capabilities (odp_pktio_capability_t::extmem) to
+	 *  check if the interface supports the feature. External memory output can be enabled only
+	 *  in ODP_PKTOUT_MODE_DIRECT mode.
+	 *
+	 *  Application needs to enable also a packet transmit completion mode (see 'tx_compl')
+	 *  to be able to detect when transmitted external data is not used anymore by the
+	 *  interface.
+	 *
+	 *  0: Application will not use external memory output (default)
+	 *  1: Application will use external memory output
+	 */
+	odp_bool_t enable_extmem;
+
 	/** Packet input reassembly configuration */
 	odp_reass_config_t reassembly;
 
@@ -1081,6 +1107,35 @@ typedef struct odp_pktio_capability_t {
 	/** LSO capabilities */
 	odp_lso_capability_t lso;
 
+	/** Packet output from external memory capabilities
+	 *
+	 *  External memory output is supported only in ODP_PKTOUT_MODE_DIRECT mode. All fields
+	 *  are zero when the interface does not support the feature, or when the interface has
+	 *  been opened in another packet output mode. When the feature is supported,
+	 *  odp_pktio_capability_t::config::enable_extmem is set to one and the interface supports
+	 *  also at least one packet transmit completion mode (tx_compl.mode_event or
+	 *  tx_compl.mode_poll).
+	 *
+	 *  @see odp_pktio_extmem_register(), odp_pktout_send_extmem()
+	 */
+	struct {
+		/** Maximum length of an external memory area in bytes */
+		uint64_t max_area_len;
+
+		/** Maximum number of external memory areas registered to the interface at the same
+		 *  time. When zero, external memory output is not supported. */
+		uint32_t max_areas;
+
+		/** Required alignment of external memory area start address and length in bytes.
+		 *  The value is a power of two, typically the page size. */
+		uint32_t area_align;
+
+		/** Required alignment of external data address in bytes. The value is a power of
+		 *  two. The value of one means that the data may have any alignment. */
+		uint32_t data_align;
+
+	} extmem;
+
 	/** Supported packet reference types
 	 *
 	 *  Types of packet references and referenced packets that can be
@@ -1265,6 +1320,61 @@ typedef struct odp_lso_profile_param_t {
 	} custom;
 
 } odp_lso_profile_param_t;
+
+/**
+ * External memory area registration parameters
+ *
+ * Use odp_pktio_extmem_param_init() to initialize the structure with default values.
+ */
+typedef struct odp_pktio_extmem_param_t {
+	/** Start address of the memory area
+	 *
+	 *  Must be aligned to odp_pktio_capability_t::extmem::area_align.
+	 */
+	void *addr;
+
+	/** Length of the memory area in bytes
+	 *
+	 *  Must be a multiple of odp_pktio_capability_t::extmem::area_align and not larger than
+	 *  odp_pktio_capability_t::extmem::max_area_len.
+	 */
+	uint64_t len;
+
+	/** Page size of the memory area in bytes
+	 *
+	 *  Size of the pages backing the memory area (e.g. huge page size). When non-zero, the
+	 *  value must be a power of two, and 'addr' and 'len' must be multiples of it. When
+	 *  zero, the implementation determines the page size. The default value is zero.
+	 */
+	uint64_t page_size;
+
+} odp_pktio_extmem_param_t;
+
+/**
+ * External data of a frame
+ *
+ * Describes the external payload data that is transmitted after the header packet with
+ * odp_pktout_send_extmem().
+ */
+typedef struct odp_pktout_extmem_data_t {
+	/** Registered external memory area that contains the data */
+	odp_pktio_extmem_t extmem;
+
+	/** Pointer to the first data byte
+	 *
+	 *  Must be within the 'extmem' area and aligned to
+	 *  odp_pktio_capability_t::extmem::data_align.
+	 */
+	const void *addr;
+
+	/** Data length in bytes
+	 *
+	 *  Data must not extend past the end of the 'extmem' area. The value may be zero, in
+	 *  which case only the header packet data is transmitted.
+	 */
+	uint32_t len;
+
+} odp_pktout_extmem_data_t;
 
 /** Link status */
 typedef enum odp_pktio_link_status_t {

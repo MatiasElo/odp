@@ -568,6 +568,114 @@ int odp_pktout_send_lso(odp_pktout_queue_t queue, const odp_packet_t packet[], i
 			const odp_packet_lso_opt_t *lso_opt);
 
 /**
+ * Initialize external memory area registration parameters
+ *
+ * Initialize an odp_pktio_extmem_param_t to its default values for all fields.
+ *
+ * @param param Address of the odp_pktio_extmem_param_t to be initialized
+ */
+void odp_pktio_extmem_param_init(odp_pktio_extmem_param_t *param);
+
+/**
+ * Register an external memory area
+ *
+ * Registers an application owned memory area to the packet IO interface for packet output with
+ * odp_pktout_send_extmem(). External memory output must have been enabled in interface
+ * configuration (odp_pktio_config_t::enable_extmem). See odp_pktio_capability_t::extmem for the
+ * maximum number of areas, area size and alignment limits.
+ *
+ * Areas may be registered at any time after odp_pktio_config(), also while the interface is
+ * started. The call is multithread safe and may be called concurrently with other
+ * odp_pktio_extmem_register() and odp_pktio_extmem_unregister() calls, and with
+ * odp_pktout_send_extmem() calls that use other areas of the same interface.
+ *
+ * Areas registered to the same interface must not overlap. The same memory may be registered to
+ * multiple interfaces.
+ *
+ * The implementation performs any DMA mapping and pinning of the memory that the interface
+ * requires. The call fails if the memory cannot be made accessible to the interface.
+ *
+ * The memory remains owned by the application, the implementation never writes to or frees the
+ * memory. The application must keep the memory mapped and its contents valid until the area has
+ * been successfully unregistered with odp_pktio_extmem_unregister().
+ *
+ * An area can be resized by first unregistering the old area and then re-registering the area
+ * with new length.
+ *
+ * @param pktio   Packet IO interface
+ * @param param   External memory area parameters
+ *
+ * @return External memory area handle
+ * @retval ODP_PKTIO_EXTMEM_INVALID on failure
+ */
+odp_pktio_extmem_t odp_pktio_extmem_register(odp_pktio_t pktio,
+					     const odp_pktio_extmem_param_t *param);
+
+/**
+ * Unregister an external memory area
+ *
+ * Unregisters a previously registered external memory area. The application must ensure that
+ * the area is not used by any ongoing transmit operation, i.e. transmit of every frame sent with
+ * data from the area has completed (see odp_pktout_send_extmem()). Stopping the interface does
+ * not guarantee transmit completion of already accepted frames.
+ *
+ * The call is multithread safe and may be called concurrently with other
+ * odp_pktio_extmem_register() and odp_pktio_extmem_unregister() calls, and with
+ * odp_pktout_send_extmem() calls that use other areas of the same interface.
+ *
+ * On success, the application may unmap, resize or reuse the memory. All external memory areas of
+ * an interface must be unregistered before odp_pktio_close() is called for the interface.
+ *
+ * @param extmem  External memory area handle
+ *
+ * @retval 0 on success
+ * @retval <0 on failure
+ */
+int odp_pktio_extmem_unregister(odp_pktio_extmem_t extmem);
+
+/**
+ * Send a packet with payload from external memory
+ *
+ * Like odp_pktout_send(), but the transmitted frame consists of header packet data
+ * (odp_packet_len() bytes of data, starting from odp_packet_data()) followed by 'data->len'
+ * bytes of external data starting from 'data->addr'. The frame is transmitted in order with
+ * other frames sent through the same output queue.
+ *
+ * On success, the header packet is consumed in the same way as with odp_pktout_send(). On
+ * failure (e.g. when the output queue is full), the header packet is not consumed and the
+ * caller has to take care of it.
+ *
+ * The external memory area ('data->extmem') must be registered to the same interface as the
+ * output queue. Header packet length must be larger than zero and the total frame length
+ * (header packet length + 'data->len') must not exceed odp_pktout_maxlen().
+ *
+ * Header packet metadata is handled in the same way as with odp_pktout_send(). Checksum
+ * insertion uses packet L3/L4 offsets relative to the start of the frame and the inserted
+ * checksums cover also the external data. When checksum insertion is used, the L3 and L4
+ * headers must be located entirely within the header packet. LSO metadata is ignored.
+ *
+ * Transmit completion of the header packet (see odp_packet_tx_compl_request()) indicates also that
+ * the interface has finished reading the external data of the frame. Transmit completion is the
+ * only way to know when the interface does not use the external data anymore. The application
+ * must not modify the external data before transmit is complete, otherwise the content of the
+ * transmitted frame is undefined. It is application's responsibility to handle freeing of
+ * external data.
+ *
+ * A static reference, referencing or referenced packet may be used as the header packet without
+ * the dont_free option only if the relevant packet_ref capability is set
+ * (see odp_pktio_capability_t::packet_ref and odp_packet_free_ctrl_set()).
+ *
+ * @param queue   Packet output queue handle
+ * @param hdr     Header packet
+ * @param data    External data of the frame
+ *
+ * @retval 0 on success
+ * @retval <0 on failure
+ */
+int odp_pktout_send_extmem(odp_pktout_queue_t queue, odp_packet_t hdr,
+			   const odp_pktout_extmem_data_t *data);
+
+/**
  * Set promiscuous mode
  *
  * Enable or disable promiscuous mode on a packet IO interface. Use packet IO capability

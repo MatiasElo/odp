@@ -26,6 +26,7 @@ extern "C" {
 
 typedef ODP_HANDLE_T(odp_pktio_t);
 typedef ODP_HANDLE_T(odp_lso_profile_t);
+typedef ODP_HANDLE_T(odp_pktio_extmem_t);
 
 /** @internal */
 typedef struct odp_pktin_queue_t {
@@ -41,6 +42,7 @@ typedef struct odp_pktout_queue_t {
 
 #define ODP_PKTIO_INVALID _odp_cast_scalar(odp_pktio_t, 0)
 #define ODP_LSO_PROFILE_INVALID _odp_cast_scalar(odp_lso_profile_t, 0)
+#define ODP_PKTIO_EXTMEM_INVALID _odp_cast_scalar(odp_pktio_extmem_t, 0)
 
 #define ODP_PKTIO_MAX_INDEX 63
 
